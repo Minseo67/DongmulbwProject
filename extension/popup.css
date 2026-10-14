@@ -1,0 +1,26 @@
+
+body {
+  width: 300px;
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+h2 {
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+p {
+  font-size: 13px;
+}
+
+#status {
+  margin-top: 20px;
+  padding: 12px;
+  background-color: #e2e8f0;
+  border-radius: 8px;
+  text-align: center;
+}

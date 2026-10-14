@@ -1,0 +1,11 @@
+
+{
+  "manifest_version": 3,
+  "name": "Dongmulbw URL Security",
+  "version": "0.1.0",
+  "description": "AI 기반 악성 URL 탐지 Chrome 확장 프로그램",
+  "action": {
+    "default_title": "Dongmulbw URL Security",
+    "default_popup": "popup.html"
+  }
+}
