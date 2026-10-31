@@ -2,54 +2,48 @@
 package com.dongmulbw.backend.controller;
 
 import com.dongmulbw.backend.dto.UrlCollectRequest;
+import com.dongmulbw.backend.dto.UrlNormalizationResult;
+import com.dongmulbw.backend.entity.Url;
+import com.dongmulbw.backend.service.UrlNormalizationService;
+import com.dongmulbw.backend.service.UrlStorageService;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.URI;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/urls")
 public class UrlCollectController {
 
+    private final UrlNormalizationService normalizationService;
+    private final UrlStorageService storageService;
+
+    public UrlCollectController(
+            UrlNormalizationService normalizationService,
+            UrlStorageService storageService) {
+        this.normalizationService = normalizationService;
+        this.storageService = storageService;
+    }
+
     @PostMapping("/collect")
     public ResponseEntity<?> collectUrl(
             @RequestBody UrlCollectRequest request) {
-
-        String url = request.url();
-
-        if (url == null || url.isBlank() || url.length() > 2048) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "INVALID_URL"));
-        }
-
         try {
-            URI uri = URI.create(url);
+            // 1. 원본 URL 정규화
+            UrlNormalizationResult result = normalizationService.normalize(request.url());
 
-            String scheme = uri.getScheme();
-            String host = uri.getHost();
+            // 2. DB 저장 또는 중복 갱신
+            Url savedUrl = storageService.saveOrUpdate(result);
 
-            if (scheme == null
-                    || (!scheme.equalsIgnoreCase("http")
-                            && !scheme.equalsIgnoreCase("https"))
-                    || host == null
-                    || host.isBlank()) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "INVALID_URL"));
-            }
-
-            // 확인용 콘솔 출력
-            System.out.println("=================================");
-            System.out.println("[URL 자동 수집]");
-            System.out.println("수신 URL: " + url);
-            System.out.println("도메인: " + host);
-            System.out.println("수신 상태: SUCCESS");
-            System.out.println("=================================");
-
+            // 3. 저장 결과 반환
             return ResponseEntity.ok(Map.of(
                     "status", "SUCCESS",
-                    "url", url));
+                    "urlId", savedUrl.getUrlId(),
+                    "normalizedUrl", savedUrl.getNormalizedUrl(),
+                    "urlHash", savedUrl.getUrlHash(),
+                    "normalizationVersion",
+                    savedUrl.getNormalizationVersion()));
 
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
