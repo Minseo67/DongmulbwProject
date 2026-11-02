@@ -10,9 +10,42 @@
 </head>
 <body>
   <main>
-    <h2>Dongmulbw URL Security</h2>
-    <p>AI 기반 악성 URL 탐지 시스템</p>
-    <p id="status">확장 프로그램 준비 완료</p>
+    <header>
+      <div class="eyebrow">DONGMULBW SECURITY</div>
+      <h1>URL 보안 분석</h1>
+      <p>규칙 기반 실시간 탐지 · 시연 화면</p>
+    </header>
+
+    <section class="panel">
+      <div class="small">현재 분석 URL</div>
+      <div id="url" class="url">확인 중...</div>
+
+      <div id="status" class="status">분석 준비 중</div>
+
+      <div class="score-title">
+        <span>규칙 기반 탐지 점수</span>
+        <strong id="score">— / 100</strong>
+      </div>
+
+      <div class="bar">
+        <div id="fill"></div>
+      </div>
+
+      <h2>탐지된 위험 요소</h2>
+      <div id="findings" class="findings">
+        분석 결과를 기다리는 중...
+      </div>
+
+      <p class="note">
+        규칙별 가중치의 합산 점수이며 최대 100점입니다.
+        이 화면의 등급은 시연용 규칙 점수 기준이며,
+        RF 통합 최종 위험도와 다릅니다.
+      </p>
+
+      <button id="retry" type="button">다시 분석</button>
+    </section>
+
+    <footer id="details"></footer>
   </main>
 </body>
 </html>

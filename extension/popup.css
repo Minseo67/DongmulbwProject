@@ -1,26 +1,161 @@
+* {
+  box-sizing: border-box;
+}
 
 body {
-  width: 300px;
+  width: 370px;
   margin: 0;
+  font:
+    13px/1.5 Arial,
+    "Malgun Gothic",
+    sans-serif;
+  background: #f3f6fb;
+  color: #15243b;
+}
+
+main {
   padding: 20px;
-  font-family: Arial, sans-serif;
-  background-color: #f8fafc;
-  color: #1e293b;
+}
+
+header {
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #0284c7;
+  font-weight: 800;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 5px 0 0;
+}
+
+header p {
+  color: #64748b;
+  margin: 3px 0;
+}
+
+.panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 15px;
+  padding: 17px;
+  box-shadow: 0 5px 18px #1e293b0a;
+}
+
+.small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.url {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  margin: 5px 0 13px;
+}
+
+.status {
+  border-radius: 9px;
+  padding: 11px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  background: #e2e8f0;
+}
+
+.status.safe {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.status.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.score-title {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 21px;
+  font-size: 12px;
+}
+
+.bar {
+  height: 11px;
+  background: #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 9px;
+}
+
+#fill {
+  height: 100%;
+  width: 0;
+  background: #64748b;
+  transition: width 0.3s;
 }
 
 h2 {
-  font-size: 18px;
-  margin-bottom: 12px;
+  font-size: 14px;
+  margin: 24px 0 9px;
 }
 
-p {
-  font-size: 13px;
+.finding {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #eef2f7;
+  padding: 9px 0;
 }
 
-#status {
-  margin-top: 20px;
-  padding: 12px;
-  background-color: #e2e8f0;
-  border-radius: 8px;
-  text-align: center;
+.finding span:last-child {
+  font-weight: 800;
+  color: #b45309;
+}
+
+.empty {
+  color: #64748b;
+  padding: 12px 0;
+}
+
+.note {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 17px;
+}
+
+button {
+  width: 100%;
+  border: 0;
+  background: #0c274a;
+  color: white;
+  border-radius: 9px;
+  padding: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+button:disabled {
+  opacity: 0.6;
+}
+
+footer {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
 }
