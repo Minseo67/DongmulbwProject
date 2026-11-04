@@ -2,6 +2,7 @@
 package com.dongmulbw.backend.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -16,8 +17,18 @@ public class JevAnalysisService {
     public JevAnalysisService(
             @Value("${jev.api.url:http://127.0.0.1:8000}") String apiUrl) {
 
+        SimpleClientHttpRequestFactory requestFactory =
+                new SimpleClientHttpRequestFactory();
+
+        // 서버 연결 최대 대기 시간: 2초
+        requestFactory.setConnectTimeout(2000);
+
+        // 서버 응답 최대 대기 시간: 5초
+        requestFactory.setReadTimeout(5000);
+
         this.restClient = RestClient.builder()
                 .baseUrl(apiUrl)
+                .requestFactory(requestFactory)
                 .build();
     }
 

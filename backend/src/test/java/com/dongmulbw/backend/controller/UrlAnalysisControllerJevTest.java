@@ -139,33 +139,78 @@ class UrlAnalysisControllerJevTest {
         System.out.println("기존 분석 결과 유지 테스트: PASS");
     }
 
-    @Test
-    void testJevFailureDoesNotBreakExistingAnalysis() {
-        when(jevAnalysisService.analyze(RAW_URL))
-                .thenThrow(new IllegalStateException("Mock Jev error"));
+    
+@Test
+void testJevFailureDoesNotBreakExistingAnalysis() {
 
-        ResponseEntity<?> response =
-                controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
+    // Jev 서버 장애 상황 가정
+    when(jevAnalysisService.analyze(RAW_URL))
+            .thenThrow(new IllegalStateException("Mock Jev error"));
 
-        assertEquals(200, response.getStatusCode().value());
+    ResponseEntity<?> response =
+            controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
 
-        Map<?, ?> body = (Map<?, ?>) response.getBody();
+    // 1. 전체 API는 정상 응답해야 함
+    assertEquals(200, response.getStatusCode().value());
 
-        assertNotNull(body);
-        assertEquals("SUCCESS", body.get("status"));
-        assertEquals(NORMALIZED_URL, body.get("normalizedUrl"));
+    Map<?, ?> body = (Map<?, ?>) response.getBody();
 
-        Map<?, ?> jevResult = (Map<?, ?>) body.get("jevAnalysis");
+    assertNotNull(body);
+    assertEquals("SUCCESS", body.get("status"));
 
-        assertNotNull(jevResult);
-        assertEquals("UNAVAILABLE", jevResult.get("status"));
+    // 2. URL 정규화 결과 유지
+    assertEquals(
+            NORMALIZED_URL,
+            body.get("normalizedUrl")
+    );
 
-        verify(analysisService).analyze(
-                RAW_URL,
-                NORMALIZED_URL,
-                "example.com"
-        );
+    assertEquals(
+            "example.com",
+            body.get("domain")
+    );
 
-        System.out.println("Jev 장애 대응 테스트: PASS");
-    }
+    // 3. 기존 분석 결과 유지
+    assertTrue(body.containsKey("ruleAnalysis"));
+
+    assertEquals(
+            DomainReputationService.ReputationStatus.UNKNOWN,
+            body.get("reputationStatus")
+    );
+
+    assertEquals(
+            false,
+            body.get("phishingUrlMatched")
+    );
+
+    // 4. Jev 결과만 UNAVAILABLE 처리
+    Map<?, ?> jevResult =
+            (Map<?, ?>) body.get("jevAnalysis");
+
+    assertNotNull(jevResult);
+
+    assertEquals(
+            "UNAVAILABLE",
+            jevResult.get("status")
+    );
+
+    assertEquals(
+            "Jev 분석을 사용할 수 없습니다.",
+            jevResult.get("message")
+    );
+
+    // 5. 기존 분석 서비스가 정상 호출되었는지 검증
+    verify(analysisService).analyze(
+            RAW_URL,
+            NORMALIZED_URL,
+            "example.com"
+    );
+
+    // 6. Jev에는 원본 URL이 전달되었는지 검증
+    verify(jevAnalysisService).analyze(RAW_URL);
+
+    System.out.println(
+            "Jev 장애 시 기존 분석 결과 유지 테스트: PASS"
+    );
+}
+
 }
