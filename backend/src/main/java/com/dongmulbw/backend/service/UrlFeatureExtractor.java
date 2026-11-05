@@ -33,27 +33,23 @@ public class UrlFeatureExtractor {
             "url_entropy",
             "has_url_shortener",
             "brand_similarity",
-            "scheme_missing"
-    );
+            "scheme_missing");
 
     private static final List<String> SUSPICIOUS_KEYWORDS = List.of(
             "login", "verify", "account", "secure",
             "update", "confirm", "password",
-            "signin", "bank", "payment"
-    );
+            "signin", "bank", "payment");
 
     private static final Set<String> URL_SHORTENERS = Set.of(
             "bit.ly", "tinyurl.com", "t.co",
             "goo.gl", "ow.ly", "is.gd",
-            "buff.ly", "cutt.ly", "rebrand.ly"
-    );
+            "buff.ly", "cutt.ly", "rebrand.ly");
 
     private static final List<String> BRAND_DOMAINS = List.of(
             "google.com", "naver.com", "kakao.com",
             "youtube.com", "facebook.com",
             "instagram.com", "amazon.com",
-            "microsoft.com", "apple.com", "paypal.com"
-    );
+            "microsoft.com", "apple.com", "paypal.com");
 
     // URL에서 특징 21개를 추출
     public Map<String, Float> extractFeatures(String rawUrl) {
@@ -65,12 +61,12 @@ public class UrlFeatureExtractor {
         String url = rawUrl.strip();
 
         boolean hasExplicitScheme = url.matches(
-                "(?s)^[A-Za-z][A-Za-z0-9+.-]*://.*"
-        );
+                "(?s)^[A-Za-z][A-Za-z0-9+.-]*://.*");
 
         // 스킴이 없으면 파싱할 때만 http://를 임시 추가
         String parsingUrl = hasExplicitScheme
-                ? url : "http://" + url;
+                ? url
+                : "http://" + url;
 
         URI uri;
         try {
@@ -94,17 +90,14 @@ public class UrlFeatureExtractor {
         int subdomainCount = 0;
 
         try {
-            InternetDomainName domain =
-                    InternetDomainName.from(hostname);
+            InternetDomainName domain = InternetDomainName.from(hostname);
 
             if (domain.isUnderPublicSuffix()) {
-                registeredDomain =
-                        domain.topPrivateDomain().toString();
+                registeredDomain = domain.topPrivateDomain().toString();
 
                 String prefix = hostname.substring(
                         0,
-                        hostname.length() - registeredDomain.length()
-                );
+                        hostname.length() - registeredDomain.length());
 
                 if (prefix.endsWith(".")) {
                     prefix = prefix.substring(0, prefix.length() - 1);
@@ -128,8 +121,7 @@ public class UrlFeatureExtractor {
             for (String brand : BRAND_DOMAINS) {
                 brandSimilarity = Math.max(
                         brandSimilarity,
-                        sequenceSimilarity(registeredDomain, brand)
-                );
+                        sequenceSimilarity(registeredDomain, brand));
             }
         }
 
@@ -160,8 +152,7 @@ public class UrlFeatureExtractor {
         String lowerUrl = url.toLowerCase(Locale.ROOT);
 
         for (String keyword : SUSPICIOUS_KEYWORDS) {
-            suspiciousKeywordCount +=
-                    countOccurrences(lowerUrl, keyword);
+            suspiciousKeywordCount += countOccurrences(lowerUrl, keyword);
         }
 
         Map<String, Float> features = new LinkedHashMap<>();
@@ -183,7 +174,8 @@ public class UrlFeatureExtractor {
         features.put("has_https",
                 hasExplicitScheme
                         && "https".equalsIgnoreCase(uri.getScheme())
-                        ? 1f : 0f);
+                                ? 1f
+                                : 0f);
 
         features.put("has_at_symbol",
                 url.contains("@") ? 1f : 0f);
@@ -235,7 +227,8 @@ public class UrlFeatureExtractor {
     private int countChar(String text, char target) {
         int count = 0;
         for (char c : text.toCharArray()) {
-            if (c == target) count++;
+            if (c == target)
+                count++;
         }
         return count;
     }
@@ -253,13 +246,12 @@ public class UrlFeatureExtractor {
 
     // Shannon 엔트로피
     private double calculateEntropy(String text) {
-        if (text.isEmpty()) return 0.0;
+        if (text.isEmpty())
+            return 0.0;
 
         Map<Integer, Integer> counts = new HashMap<>();
 
-        text.codePoints().forEach(c ->
-                counts.merge(c, 1, Integer::sum)
-        );
+        text.codePoints().forEach(c -> counts.merge(c, 1, Integer::sum));
 
         int length = text.codePointCount(0, text.length());
         double entropy = 0.0;
@@ -275,12 +267,12 @@ public class UrlFeatureExtractor {
     // 문자열 유사도: Python SequenceMatcher 방식의
     // 연속 일치 블록을 재귀적으로 계산
     private double sequenceSimilarity(String a, String b) {
-        if (a.isEmpty() && b.isEmpty()) return 1.0;
+        if (a.isEmpty() && b.isEmpty())
+            return 1.0;
 
         int matches = matchingSize(
                 a, 0, a.length(),
-                b, 0, b.length()
-        );
+                b, 0, b.length());
 
         return (2.0 * matches) / (a.length() + b.length());
     }
@@ -311,7 +303,8 @@ public class UrlFeatureExtractor {
             }
         }
 
-        if (bestLength == 0) return 0;
+        if (bestLength == 0)
+            return 0;
 
         return bestLength
                 + matchingSize(
@@ -335,17 +328,21 @@ public class UrlFeatureExtractor {
         }
 
         // IPv4
-        if (!hostname.matches("[0-9.]+")) return false;
+        if (!hostname.matches("[0-9.]+"))
+            return false;
 
         String[] parts = hostname.split("\\.", -1);
-        if (parts.length != 4) return false;
+        if (parts.length != 4)
+            return false;
 
         for (String part : parts) {
-            if (part.isEmpty() || part.length() > 3) return false;
+            if (part.isEmpty() || part.length() > 3)
+                return false;
 
             try {
                 int number = Integer.parseInt(part);
-                if (number < 0 || number > 255) return false;
+                if (number < 0 || number > 255)
+                    return false;
             } catch (NumberFormatException e) {
                 return false;
             }
