@@ -1,51 +1,60 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dongmulbw URL Security</title>
-  <link rel="stylesheet" href="popup.css">
-  <script src="popup.js" defer></script>
-</head>
-<body>
-  <main>
-    <header>
-      <div class="eyebrow">DONGMULBW SECURITY</div>
-      <h1>URL 보안 분석</h1>
-      <p>규칙 기반 실시간 탐지 · 시연 화면</p>
-    </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dongmulbw URL Security</title>
+    <link rel="stylesheet" href="popup.css" />
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">DONGMULBW SECURITY</div>
+        <h1>URL 보안 분석</h1>
+        <p>규칙 기반 실시간 탐지 · 시연 화면</p>
+      </header>
 
-    <section class="panel">
-      <div class="small">현재 분석 URL</div>
-      <div id="url" class="url">확인 중...</div>
+      <section class="panel">
+        <div class="small">현재 분석 URL</div>
+        <div id="url" class="url">확인 중...</div>
 
-      <div id="status" class="status">분석 준비 중</div>
+        <div id="status" class="status">분석 준비 중</div>
 
-      <div class="score-title">
-        <span>규칙 기반 탐지 점수</span>
-        <strong id="score">— / 100</strong>
-      </div>
+        <div class="score-title">
+          <span>규칙 기반 탐지 점수</span>
+          <strong id="score">— / 100</strong>
+        </div>
 
-      <div class="bar">
-        <div id="fill"></div>
-      </div>
+        <div class="bar">
+          <div id="fill"></div>
+        </div>
 
-      <h2>탐지된 위험 요소</h2>
-      <div id="findings" class="findings">
-        분석 결과를 기다리는 중...
-      </div>
+        <h2>탐지된 위험 요소</h2>
+        <div id="findings" class="findings">분석 결과를 기다리는 중...</div>
 
-      <p class="note">
-        규칙별 가중치의 합산 점수이며 최대 100점입니다.
-        이 화면의 등급은 시연용 규칙 점수 기준이며,
-        RF 통합 최종 위험도와 다릅니다.
-      </p>
+        <p class="note">
+          규칙별 가중치의 합산 점수이며 최대 100점입니다. 이 화면의 등급은
+          시연용 규칙 점수 기준이며, RF 통합 최종 위험도와 다릅니다.
+        </p>
 
-      <button id="retry" type="button">다시 분석</button>
-    </section>
+        <button id="retry" type="button">다시 분석</button>
+      </section>
 
-    <footer id="details"></footer>
-  </main>
-</body>
+      <!-- RF 단독 테스트 영역 -->
+      <section class="rf-test-section">
+        <h2>Random Forest 단독 테스트</h2>
+
+        <p>RF 모델만 사용하여 현재 URL을 분석합니다.</p>
+
+        <button id="ml-test" type="button">RF 단독 검사</button>
+
+        <div id="ml-test-result" aria-live="polite">
+          아직 RF 검사를 실행하지 않았습니다.
+        </div>
+      </section>
+
+      <footer id="details"></footer>
+    </main>
+  </body>
 </html>
