@@ -1,0 +1,16 @@
+{
+  "model_name": "RF_F_Base",
+  "version": "v1.0",
+  "algorithm": "RandomForestClassifier",
+  "model_file": "rf_f_base.onnx",
+  "feature_file": "feature_names.json",
+  "n_features": 21,
+  "threshold": 0.5,
+  "class_labels": {
+    "0": "benign",
+    "1": "malicious"
+  },
+  "input_name": "input",
+  "input_dtype": "float32",
+  "status": "demo_candidate"
+}
