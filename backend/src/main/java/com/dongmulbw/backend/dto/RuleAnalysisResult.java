@@ -1,5 +1,6 @@
-
 package com.dongmulbw.backend.dto;
+
+import java.util.List;
 
 public record RuleAnalysisResult(
         int domainLength,
@@ -14,5 +15,11 @@ public record RuleAnalysisResult(
         boolean hasSubdomainBrandImpersonation,
         boolean hasShortUrlService,
         int queryParamCount,
-        double suspiciousScore) {
+        double suspiciousScore,
+        String riskLevel,
+        List<RuleFinding> findings) {
+    public record RuleFinding(
+            String reason,
+            int points) {
+    }
 }
