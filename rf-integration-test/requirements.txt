@@ -1,0 +1,4 @@
+# RF F feature extraction and float32 input vector
+# Versions should be pinned after validation in the original Colab environment.
+tldextract
+numpy
