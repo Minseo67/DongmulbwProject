@@ -77,6 +77,8 @@ public class RuleBasedAnalysisService {
                 .mapToInt(RuleFinding::points)
                 .sum());
 
+        String riskLevel = classifyRiskLevel(score);
+
         return new RuleAnalysisResult(
                 domainLength,
                 hyphenCount,
@@ -91,6 +93,7 @@ public class RuleBasedAnalysisService {
                 hasShortUrlService,
                 queryParamCount,
                 score,
+                riskLevel,
                 findings);
     }
 
@@ -339,5 +342,17 @@ public class RuleBasedAnalysisService {
         }
 
         return findings;
+    }
+
+    private String classifyRiskLevel(double score) {
+        if (score >= 60) {
+            return "DANGER";
+        }
+
+        if (score >= 30) {
+            return "WARNING";
+        }
+
+        return "SAFE";
     }
 }
