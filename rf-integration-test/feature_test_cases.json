@@ -1,0 +1,159 @@
+{
+  "description": "RF F Python feature extraction reference; labels are illustrative, not ground-truth malware labels.",
+  "feature_order": [
+    "url_length",
+    "hostname_length",
+    "domain_length",
+    "subdomain_count",
+    "dot_count",
+    "hyphen_count",
+    "digit_count",
+    "special_char_count",
+    "digit_ratio",
+    "has_ip_address",
+    "has_https",
+    "has_at_symbol",
+    "path_length",
+    "path_depth",
+    "query_param_count",
+    "has_punycode",
+    "suspicious_keyword_count",
+    "url_entropy",
+    "has_url_shortener",
+    "brand_similarity",
+    "scheme_missing"
+  ],
+  "input_dtype": "float32",
+  "normalization": "No separate URL normalization; extract_features strips surrounding whitespace and temporarily adds http:// for parsing when scheme is absent.",
+  "cases": [
+    {
+      "id": "normal_google",
+      "url": "https://www.google.com/",
+      "category": "normal_example",
+      "features_python": {
+        "url_length": 23,
+        "hostname_length": 14,
+        "domain_length": 10,
+        "subdomain_count": 1,
+        "dot_count": 2,
+        "hyphen_count": 0,
+        "digit_count": 0,
+        "special_char_count": 0,
+        "digit_ratio": 0.0,
+        "has_ip_address": 0,
+        "has_https": 1,
+        "has_at_symbol": 0,
+        "path_length": 1,
+        "path_depth": 0,
+        "query_param_count": 0,
+        "has_punycode": 0,
+        "suspicious_keyword_count": 0,
+        "url_entropy": 3.642489673166126,
+        "has_url_shortener": 0,
+        "brand_similarity": 0.0,
+        "scheme_missing": 0
+      },
+      "vector_float32": [
+        23.0, 14.0, 10.0, 1.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 3.6424896717071533, 0.0, 0.0, 0.0
+      ]
+    },
+    {
+      "id": "normal_naver",
+      "url": "https://www.naver.com/",
+      "category": "normal_example",
+      "features_python": {
+        "url_length": 22,
+        "hostname_length": 13,
+        "domain_length": 9,
+        "subdomain_count": 1,
+        "dot_count": 2,
+        "hyphen_count": 0,
+        "digit_count": 0,
+        "special_char_count": 0,
+        "digit_ratio": 0.0,
+        "has_ip_address": 0,
+        "has_https": 1,
+        "has_at_symbol": 0,
+        "path_length": 1,
+        "path_depth": 0,
+        "query_param_count": 0,
+        "has_punycode": 0,
+        "suspicious_keyword_count": 0,
+        "url_entropy": 3.8453509366224363,
+        "has_url_shortener": 0,
+        "brand_similarity": 0.0,
+        "scheme_missing": 0
+      },
+      "vector_float32": [
+        22.0, 13.0, 9.0, 1.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 3.845350980758667, 0.0, 0.0, 0.0
+      ]
+    },
+    {
+      "id": "suspicious_pattern",
+      "url": "http://secure-login.example.com/verify-account?confirm=1",
+      "category": "synthetic_suspicious_example",
+      "features_python": {
+        "url_length": 56,
+        "hostname_length": 24,
+        "domain_length": 11,
+        "subdomain_count": 1,
+        "dot_count": 2,
+        "hyphen_count": 2,
+        "digit_count": 1,
+        "special_char_count": 2,
+        "digit_ratio": 0.017857142857142856,
+        "has_ip_address": 0,
+        "has_https": 0,
+        "has_at_symbol": 0,
+        "path_length": 15,
+        "path_depth": 1,
+        "query_param_count": 1,
+        "has_punycode": 0,
+        "suspicious_keyword_count": 5,
+        "url_entropy": 4.490415529881632,
+        "has_url_shortener": 0,
+        "brand_similarity": 0.8,
+        "scheme_missing": 0
+      },
+      "vector_float32": [
+        56.0, 24.0, 11.0, 1.0, 2.0, 2.0, 1.0, 2.0, 0.01785714365541935, 0.0,
+        0.0, 0.0, 15.0, 1.0, 1.0, 0.0, 5.0, 4.490415573120117, 0.0,
+        0.800000011920929, 0.0
+      ]
+    },
+    {
+      "id": "missing_scheme",
+      "url": "example.com/login?user=test",
+      "category": "scheme_edge_case",
+      "features_python": {
+        "url_length": 27,
+        "hostname_length": 11,
+        "domain_length": 11,
+        "subdomain_count": 0,
+        "dot_count": 1,
+        "hyphen_count": 0,
+        "digit_count": 0,
+        "special_char_count": 2,
+        "digit_ratio": 0.0,
+        "has_ip_address": 0,
+        "has_https": 0,
+        "has_at_symbol": 0,
+        "path_length": 6,
+        "path_depth": 1,
+        "query_param_count": 1,
+        "has_punycode": 0,
+        "suspicious_keyword_count": 1,
+        "url_entropy": 4.088220835496801,
+        "has_url_shortener": 0,
+        "brand_similarity": 0.8,
+        "scheme_missing": 1
+      },
+      "vector_float32": [
+        27.0, 11.0, 11.0, 0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 6.0, 1.0,
+        1.0, 0.0, 1.0, 4.088221073150635, 0.0, 0.800000011920929, 1.0
+      ]
+    }
+  ]
+}

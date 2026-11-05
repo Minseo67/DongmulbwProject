@@ -1,0 +1,25 @@
+{
+  "note": "Inputs only. Run generate_feature_test_cases.py in Colab to produce actual reference feature_test_cases.json.",
+  "cases": [
+    {
+      "id": "normal_google",
+      "url": "https://www.google.com/",
+      "category": "normal_example"
+    },
+    {
+      "id": "normal_naver",
+      "url": "https://www.naver.com/",
+      "category": "normal_example"
+    },
+    {
+      "id": "suspicious_pattern",
+      "url": "http://secure-login.example.com/verify-account?confirm=1",
+      "category": "synthetic_suspicious_example"
+    },
+    {
+      "id": "missing_scheme",
+      "url": "example.com/login?user=test",
+      "category": "scheme_edge_case"
+    }
+  ]
+}
