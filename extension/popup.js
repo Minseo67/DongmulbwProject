@@ -1,40 +1,29 @@
 const API_URL = "http://localhost:8080/api/urls/analyze";
-
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 const rules = [
-  ["도메인 길이 30자 이상", (r) => r.domainLength >= 30, 15],
-  ["도메인 하이픈 2개 이상", (r) => r.hyphenCount >= 2, 15],
-  ["도메인 점 3개 이상", (r) => r.dotCount >= 3, 15],
-  ["도메인 숫자 3개 이상", (r) => r.digitCount >= 3, 10],
-  ["IP 주소 사용", (r) => r.hasIpAddress, 30],
-  ["Punycode 사용", (r) => r.hasPunycode, 25],
-  ["의심 키워드 포함", (r) => r.hasSuspiciousKeyword, 20],
-  ["의심 TLD 사용", (r) => r.hasSuspiciousTld, 20],
-  ["단축 URL 서비스", (r) => r.hasShortUrlService, 20],
-  ["브랜드 사칭 패턴", (r) => r.hasBrandImpersonation, 50],
-  [
-    "브랜드 사칭 + 의심 키워드",
-    (r) => r.hasBrandImpersonation && r.hasSuspiciousKeyword,
-    20,
-  ],
-  ["서브도메인 브랜드 사칭", (r) => r.hasSubdomainBrandImpersonation, 35],
-  [
-    "서브도메인 사칭 + 의심 키워드",
-    (r) => r.hasSubdomainBrandImpersonation && r.hasSuspiciousKeyword,
-    20,
-  ],
-  [
-    "단축 URL + 브랜드 사칭",
-    (r) => r.hasShortUrlService && r.hasBrandImpersonation,
-    15,
-  ],
-  ["쿼리 파라미터 3개 이상", (r) => r.queryParamCount >= 3, 10],
-  [
-    "HTTP + 도메인 점 2개",
-    (r, url) => r.dotCount === 2 && url.startsWith("http:"),
-    10,
-  ],
+  ['도메인 길이 30자 이상', r => r.domainLength >= 30, 15],
+  ['도메인 하이픈 2개 이상', r => r.hyphenCount >= 2, 15],
+  ['도메인 점 3개 이상', r => r.dotCount >= 3, 15],
+  ['도메인 숫자 3개 이상', r => r.digitCount >= 3, 10],
+  ['IP 주소 사용', r => r.hasIpAddress, 30],
+  ['Punycode 사용', r => r.hasPunycode, 25],
+  ['의심 키워드 포함', r => r.hasSuspiciousKeyword, 20],
+  ['의심 TLD 사용', r => r.hasSuspiciousTld, 20],
+  ['단축 URL 서비스', r => r.hasShortUrlService, 20],
+  ['브랜드 사칭 패턴', r => r.hasBrandImpersonation, 50],
+  ['브랜드 사칭 + 의심 키워드',
+    r => r.hasBrandImpersonation && r.hasSuspiciousKeyword, 20],
+  ['서브도메인 브랜드 사칭',
+    r => r.hasSubdomainBrandImpersonation, 35],
+  ['서브도메인 사칭 + 의심 키워드',
+    r => r.hasSubdomainBrandImpersonation && r.hasSuspiciousKeyword, 20],
+  ['단축 URL + 브랜드 사칭',
+    r => r.hasShortUrlService && r.hasBrandImpersonation, 15],
+  ['쿼리 파라미터 3개 이상',
+    r => r.queryParamCount >= 3, 10],
+  ['HTTP + 도메인 점 2개',
+    (r, url) => r.dotCount === 2 && url.startsWith('http:'), 10]
 ];
 
 function state(message, kind = "") {
@@ -65,7 +54,7 @@ async function analyze() {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 35000);
 
     let response;
 
@@ -116,7 +105,11 @@ async function analyze() {
           ? "#f59e0b"
           : "#22c55e";
 
-    const found = rules.filter(([, test]) => test(r, url));
+    if (!Array.isArray(r.findings)) {
+      throw Error('백엔드 규칙 상세 결과가 없습니다. 서버를 재시작하세요.');
+    }
+
+    const found = r.findings;
 
     $("findings").replaceChildren();
 
@@ -128,8 +121,8 @@ async function analyze() {
     }
 
     for (const [label, , points] of found) {
-      const div = document.createElement("div");
-      div.className = "finding";
+      const div = document.createElement('div');
+      div.className = 'finding';
 
       const name = document.createElement("span");
       name.textContent = "✓ " + label;
@@ -149,9 +142,9 @@ async function analyze() {
   } catch (e) {
     state("분석 실패", "error");
 
-    $("findings").textContent =
-      e.name === "AbortError"
-        ? "분석 요청 시간 초과 (15초). 서버 상태를 확인하세요."
+    $('findings').textContent =
+      e.name === 'AbortError'
+        ? '분석 요청 시간 초과 (15초). 서버 상태를 확인하세요.'
         : e.message;
   } finally {
     $("retry").disabled = false;

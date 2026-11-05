@@ -2,10 +2,13 @@
 package com.dongmulbw.backend.service;
 
 import com.dongmulbw.backend.dto.RuleAnalysisResult;
+import com.dongmulbw.backend.dto.RuleAnalysisResult.RuleFinding;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -37,6 +40,7 @@ public class RuleBasedAnalysisService {
         }
 
         boolean hasBrandImpersonation = containsBrandImpersonation(domain);
+
         boolean hasSubdomainBrandImpersonation = containsSubdomainBrandImpersonation(domain);
 
         int domainLength = domain.length();
@@ -45,6 +49,7 @@ public class RuleBasedAnalysisService {
         int digitCount = countDigits(domain);
 
         boolean hasIpAddress = url.matches(".*\\d+\\.\\d+\\.\\d+\\.\\d+.*");
+
         boolean hasPunycode = domain.contains("xn--");
         boolean hasSuspiciousKeyword = containsSuspiciousKeyword(url);
         boolean hasSuspiciousTld = hasSuspiciousTld(domain);
@@ -53,7 +58,7 @@ public class RuleBasedAnalysisService {
         int queryParamCount = countQueryParams(url);
         boolean usesHttp = url.regionMatches(true, 0, "http://", 0, 7);
 
-        double score = calculateScore(
+        List<RuleFinding> findings = collectFindings(
                 domainLength,
                 hyphenCount,
                 dotCount,
@@ -68,6 +73,10 @@ public class RuleBasedAnalysisService {
                 queryParamCount,
                 usesHttp);
 
+        double score = Math.min(100, findings.stream()
+                .mapToInt(RuleFinding::points)
+                .sum());
+
         return new RuleAnalysisResult(
                 domainLength,
                 hyphenCount,
@@ -81,7 +90,8 @@ public class RuleBasedAnalysisService {
                 hasSubdomainBrandImpersonation,
                 hasShortUrlService,
                 queryParamCount,
-                score);
+                score,
+                findings);
     }
 
     private int countChar(String text, char target) {
@@ -113,6 +123,7 @@ public class RuleBasedAnalysisService {
             }
 
             return count;
+
         } catch (URISyntaxException e) {
             return 0;
         }
@@ -246,7 +257,7 @@ public class RuleBasedAnalysisService {
         return false;
     }
 
-    private double calculateScore(
+    private List<RuleFinding> collectFindings(
             int domainLength,
             int hyphenCount,
             int dotCount,
@@ -261,75 +272,72 @@ public class RuleBasedAnalysisService {
             int queryParamCount,
             boolean usesHttp) {
 
-        double score = 0;
+        List<RuleFinding> findings = new ArrayList<>();
 
         if (domainLength >= 30) {
-            score += 15;
+            findings.add(new RuleFinding("도메인 길이 30자 이상", 15));
         }
 
         if (hyphenCount >= 2) {
-            score += 15;
+            findings.add(new RuleFinding("도메인 하이픈 2개 이상", 15));
         }
 
         if (dotCount >= 3) {
-            score += 15;
+            findings.add(new RuleFinding("도메인 점 3개 이상", 15));
         }
 
         if (digitCount >= 3) {
-            score += 10;
+            findings.add(new RuleFinding("도메인 숫자 3개 이상", 10));
         }
 
         if (hasIpAddress) {
-            score += 30;
+            findings.add(new RuleFinding("IP 주소 사용", 30));
         }
 
         if (hasPunycode) {
-            score += 25;
+            findings.add(new RuleFinding("Punycode 사용", 25));
         }
 
         if (hasSuspiciousKeyword) {
-            score += 20;
+            findings.add(new RuleFinding("의심 키워드 포함", 20));
         }
 
         if (hasSuspiciousTld) {
-            score += 20;
+            findings.add(new RuleFinding("의심 TLD 사용", 20));
         }
 
         if (hasShortUrlService) {
-            score += 20;
+            findings.add(new RuleFinding("단축 URL 서비스", 20));
         }
 
         if (hasBrandImpersonation) {
-            score += 50;
+            findings.add(new RuleFinding("브랜드 사칭 패턴", 50));
         }
 
         if (hasBrandImpersonation && hasSuspiciousKeyword) {
-            score += 20;
+            findings.add(new RuleFinding("브랜드 사칭 + 의심 키워드", 20));
         }
 
         if (hasSubdomainBrandImpersonation) {
-            score += 35;
+            findings.add(new RuleFinding("서브도메인 브랜드 사칭", 35));
         }
 
         if (hasSubdomainBrandImpersonation && hasSuspiciousKeyword) {
-            score += 20;
+            findings.add(new RuleFinding("서브도메인 사칭 + 의심 키워드", 20));
         }
 
         if (hasShortUrlService && hasBrandImpersonation) {
-            score += 15;
+            findings.add(new RuleFinding("단축 URL + 브랜드 사칭", 15));
         }
 
-        // 쿼리 파라미터 3개 이상
         if (queryParamCount >= 3) {
-            score += 10;
+            findings.add(new RuleFinding("쿼리 파라미터 3개 이상", 10));
         }
 
-        // 신규 규칙: HTTP 사용 + 도메인 점 2개
         if (dotCount == 2 && usesHttp) {
-            score += 10;
+            findings.add(new RuleFinding("HTTP + 도메인 점 2개", 10));
         }
 
-        return Math.min(score, 100);
+        return findings;
     }
-
 }
