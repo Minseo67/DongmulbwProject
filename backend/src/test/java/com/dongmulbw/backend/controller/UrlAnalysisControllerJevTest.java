@@ -3,26 +3,35 @@ package com.dongmulbw.backend.controller;
 
 import com.dongmulbw.backend.dto.UrlCollectRequest;
 import com.dongmulbw.backend.dto.UrlNormalizationResult;
-import com.dongmulbw.backend.service.JevAnalysisService;
+import com.dongmulbw.backend.repository.UrlRepository;
+
+import com.dongmulbw.backend.service.IntegratedUrlAnalysisService;
 import com.dongmulbw.backend.service.UrlAnalysisService;
 import com.dongmulbw.backend.service.UrlNormalizationService;
 import com.dongmulbw.backend.service.DomainReputationService;
+import com.dongmulbw.backend.service.AnalysisVersionService;
+import com.dongmulbw.backend.service.UrlAnalysisCacheService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class UrlAnalysisControllerJevTest {
 
     private UrlNormalizationService normalizationService;
-    private UrlAnalysisService analysisService;
-    private JevAnalysisService jevAnalysisService;
+    private IntegratedUrlAnalysisService integratedAnalysisService;
+
+    private UrlRepository urlRepository;
+    private AnalysisVersionService versionService;
+    private UrlAnalysisCacheService cacheService;
+
     private UrlAnalysisController controller;
 
     private static final String RAW_URL =
@@ -31,16 +40,26 @@ class UrlAnalysisControllerJevTest {
     private static final String NORMALIZED_URL =
             "https://example.com/login?next=home";
 
+    private static final String DOMAIN = "example.com";
+
     @BeforeEach
     void setUp() {
-        normalizationService = mock(UrlNormalizationService.class);
-        analysisService = mock(UrlAnalysisService.class);
-        jevAnalysisService = mock(JevAnalysisService.class);
 
+        normalizationService = mock(UrlNormalizationService.class);
+        integratedAnalysisService =
+                mock(IntegratedUrlAnalysisService.class);
+
+        urlRepository = mock(UrlRepository.class);
+        versionService = mock(AnalysisVersionService.class);
+        cacheService = mock(UrlAnalysisCacheService.class);
+
+        // 변경된 Controller 생성자
         controller = new UrlAnalysisController(
                 normalizationService,
-                analysisService,
-                jevAnalysisService
+                integratedAnalysisService,
+                urlRepository,
+                versionService,
+                cacheService
         );
 
         UrlNormalizationResult normalized =
@@ -48,13 +67,36 @@ class UrlAnalysisControllerJevTest {
                         RAW_URL,
                         NORMALIZED_URL,
                         "https",
-                        "example.com",
+                        DOMAIN,
                         "test-hash",
                         "norm-v1"
                 );
 
         when(normalizationService.normalize(RAW_URL))
                 .thenReturn(normalized);
+
+        // DB에 URL이 존재하지 않는 상황
+        when(urlRepository.findByHashKeyVersionAndUrlHash(
+                1, "test-hash"
+        )).thenReturn(Optional.empty());
+
+        // 통합 서비스의 기본 반환 결과
+        when(integratedAnalysisService.analyze(
+                RAW_URL,
+                NORMALIZED_URL,
+                DOMAIN
+        )).thenReturn(createIntegratedResult(
+                "SKIPPED",
+                null,
+                false
+        ));
+    }
+
+    // 통합 분석 결과 생성
+    private Map<String, Object> createIntegratedResult(
+            String jevStatus,
+            Map<String, Object> jevAnalysis,
+            boolean jevTriggered) {
 
         UrlAnalysisService.AnalysisResult existingResult =
                 new UrlAnalysisService.AnalysisResult(
@@ -63,15 +105,23 @@ class UrlAnalysisControllerJevTest {
                         false
                 );
 
-        when(analysisService.analyze(
-                RAW_URL,
-                NORMALIZED_URL,
-                "example.com"
-        )).thenReturn(existingResult);
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        result.put("status", "SUCCESS");
+        result.put("ruleAnalysis", existingResult);
+        result.put("mlAnalysis", null);
+
+        result.put("jevTriggered", jevTriggered);
+        result.put("jevStatus", jevStatus);
+        result.put("jevAnalysis", jevAnalysis);
+        result.put("jevElapsedMs", null);
+
+        return result;
     }
 
     @Test
     void testJevResultIncluded() {
+
         Map<String, Object> fakeJevResult = Map.of(
                 "risk_level", "safe",
                 "confidence", 0.72,
@@ -79,8 +129,15 @@ class UrlAnalysisControllerJevTest {
                 "cached", false
         );
 
-        when(jevAnalysisService.analyze(RAW_URL))
-                .thenReturn(fakeJevResult);
+        when(integratedAnalysisService.analyze(
+                RAW_URL,
+                NORMALIZED_URL,
+                DOMAIN
+        )).thenReturn(createIntegratedResult(
+                "COMPLETED",
+                fakeJevResult,
+                true
+        ));
 
         ResponseEntity<?> response =
                 controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
@@ -91,126 +148,120 @@ class UrlAnalysisControllerJevTest {
 
         assertNotNull(body);
         assertEquals("SUCCESS", body.get("status"));
+
+        assertEquals(true, body.get("jevTriggered"));
+        assertEquals("COMPLETED", body.get("jevStatus"));
         assertEquals(fakeJevResult, body.get("jevAnalysis"));
 
-        System.out.println("Jev 결과 추가 테스트: PASS");
+        // 기존 DB 및 캐시 정보 유지
+        assertEquals(false, body.get("urlExists"));
+        assertNull(body.get("urlId"));
+        assertEquals(false, body.get("cacheHit"));
     }
 
     @Test
     void testOriginalUrlTransfer() {
-        when(jevAnalysisService.analyze(anyString()))
-                .thenReturn(Map.of("risk_level", "safe"));
 
         controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
 
-        verify(jevAnalysisService).analyze(RAW_URL);
-        verify(jevAnalysisService, never()).analyze(NORMALIZED_URL);
+        // 통합 서비스에 세 가지 URL 정보가 정확히 전달되는지 검증
+        verify(integratedAnalysisService).analyze(
+                RAW_URL,
+                NORMALIZED_URL,
+                DOMAIN
+        );
 
-        System.out.println("Jev 원본 URL 전달 테스트: PASS");
+        verify(integratedAnalysisService, times(1))
+                .analyze(anyString(), anyString(), anyString());
     }
 
     @Test
     void testExistingAnalysisPreserved() {
-        when(jevAnalysisService.analyze(RAW_URL))
-                .thenReturn(Map.of("risk_level", "safe"));
 
         ResponseEntity<?> response =
                 controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
+
+        assertEquals(200, response.getStatusCode().value());
+
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+
+        assertNotNull(body);
+
+        assertEquals("SUCCESS", body.get("status"));
+        assertEquals(NORMALIZED_URL, body.get("normalizedUrl"));
+        assertEquals(DOMAIN, body.get("domain"));
+
+        // 기존 분석 항목 유지
+        assertTrue(body.containsKey("ruleAnalysis"));
+
+        assertEquals(
+                DomainReputationService.ReputationStatus.UNKNOWN,
+                body.get("reputationStatus")
+        );
+
+        assertEquals(false, body.get("phishingUrlMatched"));
+
+        // 새 분석 항목 포함
+        assertTrue(body.containsKey("mlAnalysis"));
+        assertEquals(false, body.get("jevTriggered"));
+        assertEquals("SKIPPED", body.get("jevStatus"));
+        assertNull(body.get("jevAnalysis"));
+
+        verify(integratedAnalysisService).analyze(
+                RAW_URL,
+                NORMALIZED_URL,
+                DOMAIN
+        );
+    }
+
+    @Test
+    void testJevFailureDoesNotBreakExistingAnalysis() {
+
+        // JEV 호출이 실패한 경우의 통합 서비스 반환값
+        when(integratedAnalysisService.analyze(
+                RAW_URL,
+                NORMALIZED_URL,
+                DOMAIN
+        )).thenReturn(createIntegratedResult(
+                "UNAVAILABLE",
+                null,
+                true
+        ));
+
+        ResponseEntity<?> response =
+                controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
+
+        // 전체 API는 정상 응답
+        assertEquals(200, response.getStatusCode().value());
 
         Map<?, ?> body = (Map<?, ?>) response.getBody();
 
         assertNotNull(body);
         assertEquals("SUCCESS", body.get("status"));
+
+        // 기존 URL 정보 유지
         assertEquals(NORMALIZED_URL, body.get("normalizedUrl"));
-        assertEquals("example.com", body.get("domain"));
+        assertEquals(DOMAIN, body.get("domain"));
+
+        // 기존 분석 결과 유지
         assertTrue(body.containsKey("ruleAnalysis"));
+
         assertEquals(
                 DomainReputationService.ReputationStatus.UNKNOWN,
                 body.get("reputationStatus")
         );
+
         assertEquals(false, body.get("phishingUrlMatched"));
 
-        verify(analysisService).analyze(
+        // JEV만 사용 불가 상태
+        assertEquals(true, body.get("jevTriggered"));
+        assertEquals("UNAVAILABLE", body.get("jevStatus"));
+        assertNull(body.get("jevAnalysis"));
+
+        verify(integratedAnalysisService).analyze(
                 RAW_URL,
                 NORMALIZED_URL,
-                "example.com"
+                DOMAIN
         );
-
-        System.out.println("기존 분석 결과 유지 테스트: PASS");
     }
-
-    
-@Test
-void testJevFailureDoesNotBreakExistingAnalysis() {
-
-    // Jev 서버 장애 상황 가정
-    when(jevAnalysisService.analyze(RAW_URL))
-            .thenThrow(new IllegalStateException("Mock Jev error"));
-
-    ResponseEntity<?> response =
-            controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
-
-    // 1. 전체 API는 정상 응답해야 함
-    assertEquals(200, response.getStatusCode().value());
-
-    Map<?, ?> body = (Map<?, ?>) response.getBody();
-
-    assertNotNull(body);
-    assertEquals("SUCCESS", body.get("status"));
-
-    // 2. URL 정규화 결과 유지
-    assertEquals(
-            NORMALIZED_URL,
-            body.get("normalizedUrl")
-    );
-
-    assertEquals(
-            "example.com",
-            body.get("domain")
-    );
-
-    // 3. 기존 분석 결과 유지
-    assertTrue(body.containsKey("ruleAnalysis"));
-
-    assertEquals(
-            DomainReputationService.ReputationStatus.UNKNOWN,
-            body.get("reputationStatus")
-    );
-
-    assertEquals(
-            false,
-            body.get("phishingUrlMatched")
-    );
-
-    // 4. Jev 결과만 UNAVAILABLE 처리
-    Map<?, ?> jevResult =
-            (Map<?, ?>) body.get("jevAnalysis");
-
-    assertNotNull(jevResult);
-
-    assertEquals(
-            "UNAVAILABLE",
-            jevResult.get("status")
-    );
-
-    assertEquals(
-            "Jev 분석을 사용할 수 없습니다.",
-            jevResult.get("message")
-    );
-
-    // 5. 기존 분석 서비스가 정상 호출되었는지 검증
-    verify(analysisService).analyze(
-            RAW_URL,
-            NORMALIZED_URL,
-            "example.com"
-    );
-
-    // 6. Jev에는 원본 URL이 전달되었는지 검증
-    verify(jevAnalysisService).analyze(RAW_URL);
-
-    System.out.println(
-            "Jev 장애 시 기존 분석 결과 유지 테스트: PASS"
-    );
-}
-
 }

@@ -1,7 +1,7 @@
 
 {
   "manifest_version": 3,
-  "name": "Dongmulbw URL Security",
+  "name": "LinkVet",
   "version": "0.1.0",
   "description": "AI 기반 악성 URL 탐지 Chrome 확장 프로그램",
 
