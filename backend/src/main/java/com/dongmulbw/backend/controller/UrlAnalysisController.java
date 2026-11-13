@@ -12,7 +12,10 @@ import com.dongmulbw.backend.service.UrlAnalysisService;
 import com.dongmulbw.backend.service.UrlNormalizationService;
 import com.dongmulbw.backend.service.JevAnalysisService; // [JEV 추가]
 import com.dongmulbw.backend.service.AnalysisVersionService;
+import com.dongmulbw.backend.service.DomainReputationService;
 import com.dongmulbw.backend.service.UrlAnalysisCacheService;
+import com.dongmulbw.backend.service.MlAnalysisService;
+import ai.onnxruntime.OrtException;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +37,8 @@ public class UrlAnalysisController {
     // [캐시 조회 추가]
     private final AnalysisVersionService versionService;
     private final UrlAnalysisCacheService cacheService;
+    // Random Forest 기반 악성 URL 분석 서비스
+    private final MlAnalysisService mlAnalysisService;
 
     public UrlAnalysisController(
             UrlNormalizationService normalizationService,
@@ -41,7 +46,8 @@ public class UrlAnalysisController {
             JevAnalysisService jevAnalysisService,
             UrlRepository urlRepository, // [JEV 추가]
             AnalysisVersionService versionService,
-            UrlAnalysisCacheService cacheService) {
+            UrlAnalysisCacheService cacheService,
+            MlAnalysisService mlAnalysisService) {
 
         this.normalizationService = normalizationService;
         this.analysisService = analysisService;
@@ -51,6 +57,8 @@ public class UrlAnalysisController {
         // [캐시 조회 추가]
         this.versionService = versionService;
         this.cacheService = cacheService;
+        // Spring이 주입한 Random Forest 분석 서비스 보관
+        this.mlAnalysisService = mlAnalysisService;
     }
 
     @PostMapping("/analyze")
@@ -103,21 +111,68 @@ public class UrlAnalysisController {
                     normalized.domain());
 
             // [JEV 추가] 2-1. Jev 독립 분석
+
+            // 2-1. 도메인 평판에 따라 JEV 분석 실행 여부 결정
             Map<String, Object> jevResult;
 
-            try {
-                // Jev에는 기존 분석 결과가 아닌 원본 URL만 전달
-                jevResult = jevAnalysisService.analyze(normalized.rawUrl());
+            if (analysis.reputationStatus() == DomainReputationService.ReputationStatus.BLACKLISTED) {
 
-            } catch (RuntimeException e) {
-                // Jev 서버에 문제가 발생해도 기존 분석 결과 유지
+                // 블랙리스트는 규칙 기반 분석에서 이미 100점으로 확정
+                // 불필요한 JEV 서버 호출을 생략하여 분석 시간 절약
                 jevResult = Map.of(
-                        "status", "UNAVAILABLE",
-                        "message", "Jev 분석을 사용할 수 없습니다.");
+                        "status", "SKIPPED",
+                        "reason", "BLACKLISTED_DOMAIN",
+                        "message", "블랙리스트 도메인으로 JEV 분석을 생략했습니다.");
+
+            } else {
+                try {
+                    // 일반 및 화이트리스트 도메인은 기존 JEV 분석 유지
+                    // 화이트리스트 -10점은 규칙 점수에만 적용
+                    jevResult = jevAnalysisService.analyze(normalized.rawUrl());
+
+                } catch (RuntimeException e) {
+                    // JEV 서버 오류가 발생해도 규칙 기반 분석 결과 유지
+                    jevResult = Map.of(
+                            "status", "UNAVAILABLE",
+                            "message", "JEV 분석을 사용할 수 없습니다.");
+                }
             }
 
             // [JEV 추가] 기존 응답 항목을 그대로 유지하기 위한 Map
             Map<String, Object> response = new LinkedHashMap<>();
+
+            // 2-2. Random Forest 기반 악성 URL 분석
+            // 화이트리스트의 -10점 보정은 규칙 점수에만 적용하며,
+            // RF 악성 확률은 변경하지 않는다.
+            Map<String, Object> mlResult = new LinkedHashMap<>();
+
+            if (analysis.reputationStatus() == DomainReputationService.ReputationStatus.BLACKLISTED) {
+
+                // 블랙리스트는 위험도 100점으로 확정되므로 RF 추론 생략
+                mlResult.put("status", "SKIPPED");
+                mlResult.put("reason", "BLACKLISTED_DOMAIN");
+
+            } else {
+                try {
+                    // 기존 ONNX 모델을 사용해 원본 URL 분석
+                    MlAnalysisService.MlResult prediction = mlAnalysisService.analyze(normalized.rawUrl());
+
+                    mlResult.put("status", "SUCCESS");
+                    mlResult.put("modelVersion", prediction.modelVersion());
+                    mlResult.put("maliciousProbability",
+                            prediction.maliciousProbability());
+                    mlResult.put("prediction", prediction.prediction());
+                    mlResult.put("threshold", prediction.threshold());
+
+                } catch (OrtException | RuntimeException e) {
+                    // RF 추론 실패 시에도 규칙 기반 분석 결과는 유지
+                    mlResult.put("status", "UNAVAILABLE");
+                    mlResult.put("message", "RF 분석을 사용할 수 없습니다.");
+                }
+            }
+
+            // 기존 응답 필드를 변경하지 않고 RF 결과 추가
+            response.put("mlAnalysis", mlResult);
 
             response.put("status", "SUCCESS");
             response.put("normalizedUrl", normalized.normalizedUrl());
@@ -133,8 +188,18 @@ public class UrlAnalysisController {
             response.put("urlExists", urlExists);
             response.put("urlId", urlId);
 
-            // [캐시 조회 추가]
-            response.put("cacheHit", cacheHit);
+            // 도메인 평판이 블랙리스트 또는 화이트리스트인 경우
+            // 기존 분석 캐시가 현재 평판 정책을 반영했는지 보장할 수 없으므로
+            // 캐시 적중으로 표시하지 않는다.
+            boolean reputationSensitive = analysis
+                    .reputationStatus() == DomainReputationService.ReputationStatus.BLACKLISTED
+                    || analysis.reputationStatus() == DomainReputationService.ReputationStatus.WHITELISTED;
+
+            // 실제 캐시 조회 결과와 평판 정책을 함께 고려
+            // 주의: 현재는 캐시 재사용 여부가 아닌 캐시 적중 표시만 제어한다.
+            boolean effectiveCacheHit = cacheHit && !reputationSensitive;
+
+            response.put("cacheHit", effectiveCacheHit);
 
             // 3. 결과 반환
             return ResponseEntity.ok(response);
