@@ -64,7 +64,8 @@ public class ParallelUrlAnalysisService {
         NeuroSymbolicFusionService.FusionResult fusionResult =
                 fusionService.fuse(
                         existingAnalysis.ruleResult(),
-                        rfAnalysis
+                        rfAnalysis,
+                        existingAnalysis.reputationStatus()
                 );
 
         // 5. 기존 결과와 결합 결과 함께 반환

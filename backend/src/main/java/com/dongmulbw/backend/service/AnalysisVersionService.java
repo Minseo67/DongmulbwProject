@@ -10,7 +10,7 @@ public class AnalysisVersionService {
     private static final String RULE_VERSION = "v1";
 
     // 현재 Random Forest 모델 버전
-    private static final String MODEL_VERSION = "rf_f_v1";
+    private static final String MODEL_VERSION = "G-V6-A-31";
 
     // 현재 버전 조회
     public String getRuleVersion() {
