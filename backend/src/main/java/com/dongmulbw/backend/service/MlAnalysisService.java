@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class MlAnalysisService {
 
-    private static final float THRESHOLD = 0.50f;
-    private static final String MODEL_VERSION = "rf_f_v1";
+    private static final float THRESHOLD = 0.534f;
+    private static final String MODEL_VERSION = "G-V6-A-31";
 
     private final UrlFeatureExtractor featureExtractor;
     private final RfOnnxService rfOnnxService;
@@ -16,31 +16,28 @@ public class MlAnalysisService {
     public MlAnalysisService(
             UrlFeatureExtractor featureExtractor,
             RfOnnxService rfOnnxService) {
-
         this.featureExtractor = featureExtractor;
         this.rfOnnxService = rfOnnxService;
     }
 
     public MlResult analyze(String originalUrl) throws OrtException {
 
-        // 1. URL에서 특징 21개 추출
+        // G 모델의 31개 특징 추출
         float[] features =
                 featureExtractor.extractFeatureVector(originalUrl);
 
-        // 2. ONNX Random Forest 예측
+        // ONNX 추론
         float probability =
                 rfOnnxService.predictMaliciousProbability(features);
 
-        // 3. 확률값 검증
         if (!Float.isFinite(probability)
                 || probability < 0f
                 || probability > 1f) {
             throw new IllegalStateException(
-                    "Invalid RF probability"
-            );
+                    "Invalid RF probability");
         }
 
-        // 4. 이진 분류: 0=정상, 1=악성
+        // G 모델 임계값 적용
         int prediction = probability >= THRESHOLD ? 1 : 0;
 
         return new MlResult(
@@ -56,6 +53,5 @@ public class MlAnalysisService {
             float maliciousProbability,
             int prediction,
             float threshold
-    ) {
-    }
+    ) {}
 }

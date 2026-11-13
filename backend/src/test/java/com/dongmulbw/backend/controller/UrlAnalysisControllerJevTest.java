@@ -7,6 +7,9 @@ import com.dongmulbw.backend.service.JevAnalysisService;
 import com.dongmulbw.backend.service.UrlAnalysisService;
 import com.dongmulbw.backend.service.UrlNormalizationService;
 import com.dongmulbw.backend.service.DomainReputationService;
+import com.dongmulbw.backend.repository.UrlRepository;
+import com.dongmulbw.backend.service.AnalysisVersionService;
+import com.dongmulbw.backend.service.UrlAnalysisCacheService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,43 +35,52 @@ class UrlAnalysisControllerJevTest {
             "https://example.com/login?next=home";
 
     @BeforeEach
-    void setUp() {
-        normalizationService = mock(UrlNormalizationService.class);
-        analysisService = mock(UrlAnalysisService.class);
-        jevAnalysisService = mock(JevAnalysisService.class);
+void setUp() {
+    normalizationService = mock(UrlNormalizationService.class);
+    analysisService = mock(UrlAnalysisService.class);
+    jevAnalysisService = mock(JevAnalysisService.class);
 
-        controller = new UrlAnalysisController(
-                normalizationService,
-                analysisService,
-                jevAnalysisService
-        );
+    UrlRepository urlRepository = mock(UrlRepository.class);
+    AnalysisVersionService analysisVersionService =
+            mock(AnalysisVersionService.class);
+    UrlAnalysisCacheService urlAnalysisCacheService =
+            mock(UrlAnalysisCacheService.class);
 
-        UrlNormalizationResult normalized =
-                new UrlNormalizationResult(
-                        RAW_URL,
-                        NORMALIZED_URL,
-                        "https",
-                        "example.com",
-                        "test-hash",
-                        "norm-v1"
-                );
+    controller = new UrlAnalysisController(
+            normalizationService,
+            analysisService,
+            jevAnalysisService,
+            urlRepository,
+            analysisVersionService,
+            urlAnalysisCacheService
+    );
 
-        when(normalizationService.normalize(RAW_URL))
-                .thenReturn(normalized);
+    UrlNormalizationResult normalized =
+            new UrlNormalizationResult(
+                    RAW_URL,
+                    NORMALIZED_URL,
+                    "https",
+                    "example.com",
+                    "test-hash",
+                    "norm-v1"
+            );
 
-        UrlAnalysisService.AnalysisResult existingResult =
-                new UrlAnalysisService.AnalysisResult(
-                        null,
-                        DomainReputationService.ReputationStatus.UNKNOWN,
-                        false
-                );
+    when(normalizationService.normalize(RAW_URL))
+            .thenReturn(normalized);
 
-        when(analysisService.analyze(
-                RAW_URL,
-                NORMALIZED_URL,
-                "example.com"
-        )).thenReturn(existingResult);
-    }
+    UrlAnalysisService.AnalysisResult existingResult =
+            new UrlAnalysisService.AnalysisResult(
+                    null,
+                    DomainReputationService.ReputationStatus.UNKNOWN,
+                    false
+            );
+
+    when(analysisService.analyze(
+            RAW_URL,
+            NORMALIZED_URL,
+            "example.com"
+    )).thenReturn(existingResult);
+}
 
     @Test
     void testJevResultIncluded() {
