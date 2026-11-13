@@ -66,6 +66,26 @@ public class NeuroSymbolicFusionService {
         );
     }
 
+    // DB 도메인 평판을 최종 판정에 반영한다.
+    // 블랙리스트는 최종 DANGER로 고정하고,
+    // 화이트리스트는 UrlAnalysisService에서 적용한 10점 감점을 유지한다.
+    public FusionResult fuse(
+            RuleAnalysisResult ruleResult,
+            MlAnalysisService.MlResult rfResult,
+            DomainReputationService.ReputationStatus reputationStatus) {
+
+        FusionResult weighted = fuse(ruleResult, rfResult);
+        if (reputationStatus == DomainReputationService.ReputationStatus.BLACKLISTED) {
+            return new FusionResult(
+                    weighted.ruleScore(),
+                    weighted.rfProbability(),
+                    weighted.finalScore(),
+                    "DANGER"
+            );
+        }
+        return weighted;
+    }
+
     public record FusionResult(
             double ruleScore,
             double rfProbability,

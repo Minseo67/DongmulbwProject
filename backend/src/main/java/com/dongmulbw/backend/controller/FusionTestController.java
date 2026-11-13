@@ -51,10 +51,26 @@ public class FusionTestController {
             Map<String, Object> response = new LinkedHashMap<>();
 
             response.put("status", "SUCCESS");
-            response.put("analysisType", "NEURO_SYMBOLIC_FUSION");
-            response.put("url", normalized.rawUrl());
-            response.put("normalizedUrl", normalized.normalizedUrl());
-            response.put("domain", normalized.domain());
+response.put("analysisType", "NEURO_SYMBOLIC_FUSION");
+response.put("url", normalized.rawUrl());
+response.put("normalizedUrl", normalized.normalizedUrl());
+response.put("domain", normalized.domain());
+
+// 화이트리스트·블랙리스트 판정 상태 추가
+response.put("reputationStatus",
+        result.existingAnalysis().reputationStatus().name());
+
+response.put("ruleScore", fusion.ruleScore());
+response.put("rfProbability", fusion.rfProbability());
+response.put("rfPrediction", rf.prediction());
+response.put("rfThreshold", rf.threshold());
+response.put("modelVersion", rf.modelVersion());
+
+response.put("ruleWeight", 0.7);
+response.put("rfWeight", 0.3);
+
+response.put("finalScore", fusion.finalScore());
+response.put("finalRiskLevel", fusion.finalRiskLevel());
 
             response.put("ruleScore", fusion.ruleScore());
             response.put("rfProbability", fusion.rfProbability());
