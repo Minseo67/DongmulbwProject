@@ -2,6 +2,7 @@
 package com.dongmulbw.backend.service;
 
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class JevTriggerServiceTest {
@@ -9,34 +10,49 @@ class JevTriggerServiceTest {
     private final JevTriggerService service =
             new JevTriggerService();
 
+    // 조건 A: 점수 차이가 정확히 40점이면 실행
     @Test
-    void testLargeDifference() {
-        // 규칙 85점, RF 15% → 차이 70점
-        assertTrue(service.shouldRunJev(85, 0.15));
+    void differenceOfFortyTriggers() {
+
+        assertTrue(
+                service.shouldRunJev(10, .50)
+        );
     }
 
+    // 조건 B: 평균 점수가 40~60점이면 실행
     @Test
-    void testUncertainScore() {
-        // 통합 점수 50점 → 불확실 구간
-        assertTrue(service.shouldRunJev(50, 0.50));
+    void averageBetweenFortyAndSixtyTriggers() {
+
+        assertTrue(
+                service.shouldRunJev(45, .55)
+        );
     }
 
+    // 두 조건을 모두 충족하지 않으면 생략
     @Test
-    void testSafeAgreement() {
-        // 둘 다 안전 판단 → JEV 생략
-        assertFalse(service.shouldRunJev(10, 0.10));
+    void neitherConditionSkips() {
+
+        assertFalse(
+                service.shouldRunJev(10, .20)
+        );
     }
 
+    // 등급이 같더라도 평균 점수가 모호하면 실행
     @Test
-    void testDangerAgreement() {
-        // 둘 다 위험 판단 → JEV 생략
-        assertFalse(service.shouldRunJev(90, 0.90));
+    void sameRiskGradeCanStillTriggerByScore() {
+
+        assertTrue(
+                service.shouldRunJev(45, .45)
+        );
     }
 
+    // 규칙 기반 점수 범위 오류
     @Test
-    void testInvalidProbability() {
-        // RF 확률 범위 초과 → 예외 발생
-        assertThrows(IllegalArgumentException.class,
-                () -> service.shouldRunJev(50, 1.5));
+    void invalidScoreRejected() {
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.shouldRunJev(101, .20)
+        );
     }
 }
