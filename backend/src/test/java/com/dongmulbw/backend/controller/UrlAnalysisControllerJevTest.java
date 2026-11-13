@@ -3,13 +3,16 @@ package com.dongmulbw.backend.controller;
 
 import com.dongmulbw.backend.dto.UrlCollectRequest;
 import com.dongmulbw.backend.dto.UrlNormalizationResult;
+
+import com.dongmulbw.backend.service.MlAnalysisService;
 import com.dongmulbw.backend.service.JevAnalysisService;
 import com.dongmulbw.backend.service.UrlAnalysisService;
 import com.dongmulbw.backend.service.UrlNormalizationService;
 import com.dongmulbw.backend.service.DomainReputationService;
-import com.dongmulbw.backend.repository.UrlRepository;
 import com.dongmulbw.backend.service.AnalysisVersionService;
 import com.dongmulbw.backend.service.UrlAnalysisCacheService;
+
+import com.dongmulbw.backend.repository.UrlRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,7 @@ class UrlAnalysisControllerJevTest {
     private UrlNormalizationService normalizationService;
     private UrlAnalysisService analysisService;
     private JevAnalysisService jevAnalysisService;
+    private MlAnalysisService mlAnalysisService;
     private UrlAnalysisController controller;
 
     private static final String RAW_URL =
@@ -35,55 +39,78 @@ class UrlAnalysisControllerJevTest {
             "https://example.com/login?next=home";
 
     @BeforeEach
-void setUp() {
-    normalizationService = mock(UrlNormalizationService.class);
-    analysisService = mock(UrlAnalysisService.class);
-    jevAnalysisService = mock(JevAnalysisService.class);
+    void setUp() {
 
-    UrlRepository urlRepository = mock(UrlRepository.class);
-    AnalysisVersionService analysisVersionService =
-            mock(AnalysisVersionService.class);
-    UrlAnalysisCacheService urlAnalysisCacheService =
-            mock(UrlAnalysisCacheService.class);
+        // 1. 서비스 Mock 생성
+        normalizationService =
+                mock(UrlNormalizationService.class);
 
-    controller = new UrlAnalysisController(
-            normalizationService,
-            analysisService,
-            jevAnalysisService,
-            urlRepository,
-            analysisVersionService,
-            urlAnalysisCacheService
-    );
+        analysisService =
+                mock(UrlAnalysisService.class);
 
-    UrlNormalizationResult normalized =
-            new UrlNormalizationResult(
-                    RAW_URL,
-                    NORMALIZED_URL,
-                    "https",
-                    "example.com",
-                    "test-hash",
-                    "norm-v1"
-            );
+        jevAnalysisService =
+                mock(JevAnalysisService.class);
 
-    when(normalizationService.normalize(RAW_URL))
-            .thenReturn(normalized);
+        mlAnalysisService =
+                mock(MlAnalysisService.class);
 
-    UrlAnalysisService.AnalysisResult existingResult =
-            new UrlAnalysisService.AnalysisResult(
-                    null,
-                    DomainReputationService.ReputationStatus.UNKNOWN,
-                    false
-            );
+        UrlRepository urlRepository =
+                mock(UrlRepository.class);
 
-    when(analysisService.analyze(
-            RAW_URL,
-            NORMALIZED_URL,
-            "example.com"
-    )).thenReturn(existingResult);
-}
+        AnalysisVersionService analysisVersionService =
+                mock(AnalysisVersionService.class);
+
+        UrlAnalysisCacheService urlAnalysisCacheService =
+                mock(UrlAnalysisCacheService.class);
+
+        // 2. Controller 생성
+        // MlAnalysisService 추가 (총 7개 인자)
+        controller = new UrlAnalysisController(
+                normalizationService,
+                analysisService,
+                jevAnalysisService,
+                urlRepository,
+                analysisVersionService,
+                urlAnalysisCacheService,
+                mlAnalysisService
+        );
+
+        // 3. URL 정규화 결과 Mock
+        UrlNormalizationResult normalized =
+                new UrlNormalizationResult(
+                        RAW_URL,
+                        NORMALIZED_URL,
+                        "https",
+                        "example.com",
+                        "test-hash",
+                        "norm-v1"
+                );
+
+        when(normalizationService.normalize(RAW_URL))
+                .thenReturn(normalized);
+
+        // 4. 기존 규칙 기반 분석 결과 Mock
+        UrlAnalysisService.AnalysisResult existingResult =
+                new UrlAnalysisService.AnalysisResult(
+                        null,
+                        DomainReputationService.ReputationStatus.UNKNOWN,
+                        false
+                );
+
+        when(analysisService.analyze(
+                RAW_URL,
+                NORMALIZED_URL,
+                "example.com"
+        )).thenReturn(existingResult);
+    }
+
+    // ==========================================
+    // 테스트 1. JEV 분석 결과 포함 확인
+    // ==========================================
 
     @Test
     void testJevResultIncluded() {
+
         Map<String, Object> fakeJevResult = Map.of(
                 "risk_level", "safe",
                 "confidence", 0.72,
@@ -95,52 +122,112 @@ void setUp() {
                 .thenReturn(fakeJevResult);
 
         ResponseEntity<?> response =
-                controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
+                controller.analyzeUrl(
+                        new UrlCollectRequest(RAW_URL)
+                );
 
-        assertEquals(200, response.getStatusCode().value());
+        assertEquals(
+                200,
+                response.getStatusCode().value()
+        );
 
-        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        Map<?, ?> body =
+                (Map<?, ?>) response.getBody();
 
         assertNotNull(body);
-        assertEquals("SUCCESS", body.get("status"));
-        assertEquals(fakeJevResult, body.get("jevAnalysis"));
 
-        System.out.println("Jev 결과 추가 테스트: PASS");
+        assertEquals(
+                "SUCCESS",
+                body.get("status")
+        );
+
+        assertEquals(
+                fakeJevResult,
+                body.get("jevAnalysis")
+        );
+
+        System.out.println(
+                "Jev 결과 추가 테스트: PASS"
+        );
     }
+
+    // ==========================================
+    // 테스트 2. JEV 원본 URL 전달 확인
+    // ==========================================
 
     @Test
     void testOriginalUrlTransfer() {
+
         when(jevAnalysisService.analyze(anyString()))
-                .thenReturn(Map.of("risk_level", "safe"));
+                .thenReturn(
+                        Map.of("risk_level", "safe")
+                );
 
-        controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
+        controller.analyzeUrl(
+                new UrlCollectRequest(RAW_URL)
+        );
 
-        verify(jevAnalysisService).analyze(RAW_URL);
-        verify(jevAnalysisService, never()).analyze(NORMALIZED_URL);
+        verify(jevAnalysisService)
+                .analyze(RAW_URL);
 
-        System.out.println("Jev 원본 URL 전달 테스트: PASS");
+        verify(jevAnalysisService, never())
+                .analyze(NORMALIZED_URL);
+
+        System.out.println(
+                "Jev 원본 URL 전달 테스트: PASS"
+        );
     }
+
+    // ==========================================
+    // 테스트 3. 기존 분석 결과 유지 확인
+    // ==========================================
 
     @Test
     void testExistingAnalysisPreserved() {
+
         when(jevAnalysisService.analyze(RAW_URL))
-                .thenReturn(Map.of("risk_level", "safe"));
+                .thenReturn(
+                        Map.of("risk_level", "safe")
+                );
 
         ResponseEntity<?> response =
-                controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
+                controller.analyzeUrl(
+                        new UrlCollectRequest(RAW_URL)
+                );
 
-        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        Map<?, ?> body =
+                (Map<?, ?>) response.getBody();
 
         assertNotNull(body);
-        assertEquals("SUCCESS", body.get("status"));
-        assertEquals(NORMALIZED_URL, body.get("normalizedUrl"));
-        assertEquals("example.com", body.get("domain"));
-        assertTrue(body.containsKey("ruleAnalysis"));
+
+        assertEquals(
+                "SUCCESS",
+                body.get("status")
+        );
+
+        assertEquals(
+                NORMALIZED_URL,
+                body.get("normalizedUrl")
+        );
+
+        assertEquals(
+                "example.com",
+                body.get("domain")
+        );
+
+        assertTrue(
+                body.containsKey("ruleAnalysis")
+        );
+
         assertEquals(
                 DomainReputationService.ReputationStatus.UNKNOWN,
                 body.get("reputationStatus")
         );
-        assertEquals(false, body.get("phishingUrlMatched"));
+
+        assertEquals(
+                false,
+                body.get("phishingUrlMatched")
+        );
 
         verify(analysisService).analyze(
                 RAW_URL,
@@ -148,29 +235,59 @@ void setUp() {
                 "example.com"
         );
 
-        System.out.println("기존 분석 결과 유지 테스트: PASS");
+        System.out.println(
+                "기존 분석 결과 유지 테스트: PASS"
+        );
     }
+
+    // ==========================================
+    // 테스트 4. JEV 장애 발생 시 기존 분석 유지
+    // ==========================================
 
     @Test
     void testJevFailureDoesNotBreakExistingAnalysis() {
+
         when(jevAnalysisService.analyze(RAW_URL))
-                .thenThrow(new IllegalStateException("Mock Jev error"));
+                .thenThrow(
+                        new IllegalStateException(
+                                "Mock Jev error"
+                        )
+                );
 
         ResponseEntity<?> response =
-                controller.analyzeUrl(new UrlCollectRequest(RAW_URL));
+                controller.analyzeUrl(
+                        new UrlCollectRequest(RAW_URL)
+                );
 
-        assertEquals(200, response.getStatusCode().value());
+        assertEquals(
+                200,
+                response.getStatusCode().value()
+        );
 
-        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        Map<?, ?> body =
+                (Map<?, ?>) response.getBody();
 
         assertNotNull(body);
-        assertEquals("SUCCESS", body.get("status"));
-        assertEquals(NORMALIZED_URL, body.get("normalizedUrl"));
 
-        Map<?, ?> jevResult = (Map<?, ?>) body.get("jevAnalysis");
+        assertEquals(
+                "SUCCESS",
+                body.get("status")
+        );
+
+        assertEquals(
+                NORMALIZED_URL,
+                body.get("normalizedUrl")
+        );
+
+        Map<?, ?> jevResult =
+                (Map<?, ?>) body.get("jevAnalysis");
 
         assertNotNull(jevResult);
-        assertEquals("UNAVAILABLE", jevResult.get("status"));
+
+        assertEquals(
+                "UNAVAILABLE",
+                jevResult.get("status")
+        );
 
         verify(analysisService).analyze(
                 RAW_URL,
@@ -178,6 +295,8 @@ void setUp() {
                 "example.com"
         );
 
-        System.out.println("Jev 장애 대응 테스트: PASS");
+        System.out.println(
+                "Jev 장애 대응 테스트: PASS"
+        );
     }
 }
