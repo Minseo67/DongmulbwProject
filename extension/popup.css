@@ -260,3 +260,50 @@ h1 {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.more-section {
+  margin: 20px 0 28px;
+}
+
+.more-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #2f6db3;
+  font-size: 15px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.more-link:hover {
+  opacity: 0.85;
+}
+
+.detail-box {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f6f7fb;
+  color: #2f3b52;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.detail-summary {
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.detail-extra p {
+  margin: 8px 0;
+}
+
+.detail-formula {
+  margin-top: 12px;
+  font-weight: 700;
+  color: #1f355c;
+}
+
+.hidden {
+  display: none;
+}

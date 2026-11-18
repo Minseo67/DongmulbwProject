@@ -141,49 +141,62 @@ function renderRfAnalysis(ml) {
     `정상 예측 점수: ${(100 - probability * 100).toFixed(2)}%`;
 }
 
-// 최종 상태 표시
-function renderOverallStatus(data, blocked) {
-  const rule = data.ruleAnalysis;
-  const ml = data.mlAnalysis;
+function renderOverallStatus(data) {
+  const score = data.finalScore;
+  const level = data.finalRiskLevel;
 
-  if (blocked) {
-    setStatus(
-      "위험",
-      "악성 URL 목록과 일치했습니다. 접속을 권장하지 않습니다.",
-      "danger",
-    );
+  // 백엔드의 최종 분석 결과 확인
+  if (
+    typeof score !== "number" ||
+    !Number.isFinite(score) ||
+    score < 0 ||
+    score > 100 ||
+    !["SAFE", "WARNING", "DANGER"].includes(level)
+  ) {
+    setStatus("검사 불가", "최종 분석 결과를 확인할 수 없습니다.", "error");
     return;
   }
 
-  if (!rule || !["SAFE", "WARNING", "DANGER"].includes(rule.riskLevel)) {
+  // 최종 점수와 등급 일치 여부 확인
+  const expectedLevel =
+    score >= 60 ? "DANGER" : score >= 30 ? "WARNING" : "SAFE";
+
+  if (level !== expectedLevel) {
     setStatus(
       "검사 불가",
-      "규칙 기반 검사 결과를 확인할 수 없습니다.",
+      "최종 점수와 위험 등급이 일치하지 않습니다.",
       "error",
     );
     return;
   }
 
-  // 임시 UI 표시 기준: 규칙 위험도와 RF 예측을 함께 확인
-  const rfMalicious = ml?.status === "SUCCESS" && ml.prediction === 1;
+  const statusMap = {
+    SAFE: {
+      label: "안전",
+      message: "뚜렷한 위험 요소가 발견되지 않았습니다.",
+      kind: "safe",
+    },
+    WARNING: {
+      label: "주의",
+      message: "악성 사이트일 가능성이 있으니 주의하세요.",
+      kind: "warning",
+    },
+    DANGER: {
+      label: "위험",
+      message: "위험한 URL로 분석되었습니다.",
+      kind: "danger",
+    },
+  };
 
-  if (rule.riskLevel === "DANGER") {
-    setStatus("위험", "위험한 URL 특징이 다수 발견되었습니다.", "danger");
-  } else if (rule.riskLevel === "WARNING" || rfMalicious) {
-    setStatus(
-      "주의",
-      "악성 사이트일 가능성이 있으니 접속에 주의하세요.",
-      "warning",
-    );
-  } else if (ml?.status === "UNAVAILABLE") {
-    setStatus("검사 일부 실패", "RF 검사를 완료하지 못했습니다.", "error");
-  } else {
-    setStatus(
-      "안전",
-      "현재 검사에서 뚜렷한 위험 징후가 발견되지 않았습니다.",
-      "safe",
-    );
-  }
+  const status = statusMap[level];
+
+  const rfNotice = data.fusionMode === "RULE_ONLY" ? " · RF 분석 제외" : "";
+
+  setStatus(
+    status.label,
+    `${status.message} (최종 ${score.toFixed(1)}점${rfNotice})`,
+    status.kind,
+  );
 }
 
 // 전체 URL 분석
@@ -192,15 +205,16 @@ async function analyze() {
 
   setStatus("분석 중...", "현재 사이트를 검사하고 있습니다.", "");
 
-  setResult("blacklist-result", "검사 중");
-  setResult("score", "—점");
-  setResult("rf-result", "검사 중");
+  const detailSummary = $("detailSummary");
+  const detailFormulaText = $("detailFormulaText");
 
-  $("findings").textContent = "분석 중...";
-  $("rule-total").textContent = "—";
-  $("rf-probability").textContent = "—";
-  $("rf-description").textContent = "";
-  $("rf-fill").style.width = "0%";
+  if (detailSummary) {
+    detailSummary.textContent = "분석 결과를 불러오는 중입니다.";
+  }
+
+  if (detailFormulaText) {
+    detailFormulaText.textContent = "";
+  }
 
   try {
     const [tab] = await chrome.tabs.query({
@@ -244,22 +258,28 @@ async function analyze() {
       throw new Error("URL 분석에 실패했습니다.");
     }
 
-    const blocked = renderBlacklist(data);
-    renderRuleAnalysis(data.ruleAnalysis);
-    renderRfAnalysis(data.mlAnalysis);
-    renderOverallStatus(data, blocked);
+    renderOverallStatus(data);
+    renderDetailExplanation(data);
   } catch (error) {
+    console.error("[DONGMULBW 분석 오류]", error);
+
     const message =
       error.name === "AbortError"
         ? "요청 시간이 초과되었습니다."
         : error.message;
 
     setStatus("검사 불가", message, "error");
-    setResult("blacklist-result", "확인 불가");
-    setResult("score", "확인 불가");
-    setResult("rf-result", "확인 불가");
-    $("findings").textContent = message;
-    $("rf-description").textContent = message;
+
+    const detailSummary = $("detailSummary");
+    const detailFormulaText = $("detailFormulaText");
+
+    if (detailSummary) {
+      detailSummary.textContent = "분석 결과를 확인할 수 없습니다.";
+    }
+
+    if (detailFormulaText) {
+      detailFormulaText.textContent = message;
+    }
   } finally {
     $("retry").disabled = false;
   }
@@ -267,10 +287,73 @@ async function analyze() {
 
 // 이벤트 등록
 document.addEventListener("DOMContentLoaded", () => {
-  setupToggle("rule-toggle", "rule-details");
-  setupToggle("rf-toggle", "rf-details");
+  // 최종 점수 설명 더보기 버튼
+  initializeDetailToggle();
 
+  // 다시 검사 버튼
   $("retry").addEventListener("click", analyze);
 
+  // 최초 URL 분석
   analyze();
 });
+
+function renderDetailExplanation(data) {
+  const detailSummary = document.getElementById("detailSummary");
+  const detailFormulaText = document.getElementById("detailFormulaText");
+
+  if (!detailSummary || !detailFormulaText) return;
+
+  const ruleScore = Number(data?.ruleAnalysis?.suspiciousScore);
+  const finalScore = Number(data?.finalScore);
+  const rfProbabilityRaw =
+    data?.mlAnalysis?.maliciousProbability ?? data?.mlAnalysis?.probability;
+
+  const rfProbability = Number(rfProbabilityRaw);
+
+  const hasRuleScore = Number.isFinite(ruleScore);
+  const hasFinalScore = Number.isFinite(finalScore);
+  const hasRfProbability = Number.isFinite(rfProbability);
+
+  if (hasRuleScore && hasFinalScore && hasRfProbability) {
+    const rfPercent = rfProbability <= 1 ? rfProbability * 100 : rfProbability;
+
+    const ruleWeighted = ruleScore * 0.7;
+    const rfWeighted = rfPercent * 0.3;
+
+    detailSummary.textContent = `최종 점수는 규칙 기반 검사와 RF 검사를 함께 반영해 ${finalScore.toFixed(1)}점으로 계산되었습니다.`;
+
+    detailFormulaText.textContent = `계산식: 규칙 기반 ${ruleScore.toFixed(1)}점 × 70% + RF ${rfPercent.toFixed(1)}% × 30% = ${finalScore.toFixed(1)}점`;
+    return;
+  }
+
+  if (hasRuleScore && hasFinalScore) {
+    detailSummary.textContent = `현재 최종 점수는 ${finalScore.toFixed(1)}점입니다.`;
+
+    detailFormulaText.textContent = `RF 분석 결과를 불러오지 못해 계산식 상세 정보는 표시할 수 없습니다.`;
+    return;
+  }
+
+  detailSummary.textContent = "최종 점수 산정 방식을 불러오지 못했습니다.";
+
+  detailFormulaText.textContent =
+    "규칙 기반 검사 70% + RF 검사 30% 방식으로 최종 점수를 계산합니다.";
+}
+
+function initializeDetailToggle() {
+  const toggleBtn = document.getElementById("toggleDetailsBtn");
+  const detailBox = document.getElementById("detailBox");
+
+  if (!toggleBtn || !detailBox) return;
+
+  toggleBtn.addEventListener("click", () => {
+    const isHidden = detailBox.classList.contains("hidden");
+
+    if (isHidden) {
+      detailBox.classList.remove("hidden");
+      toggleBtn.textContent = "접기";
+    } else {
+      detailBox.classList.add("hidden");
+      toggleBtn.textContent = "더보기";
+    }
+  });
+}
