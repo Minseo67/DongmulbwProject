@@ -231,25 +231,45 @@ async function analyze() {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 35000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     let response;
 
     try {
-      response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url }),
-        signal: controller.signal,
-      });
+      for (let attempt = 0; attempt < 30; attempt++) {
+        response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ url }),
+          signal: controller.signal,
+        });
+
+        // 다른 요청이 분석 중이거나 재시도 대기 중
+        if (response.status === 409) {
+          setStatus("분석 중...", "분석 결과를 기다리고 있습니다.", "");
+
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          continue;
+        }
+
+        // 409 이외의 서버 오류
+        if (!response.ok) {
+          throw new Error("서버 응답 오류: HTTP " + response.status);
+        }
+
+        break;
+      }
+
+      if (!response || response.status === 409) {
+        throw new Error(
+          "분석 대기 시간이 길어지고 있습니다. 잠시 후 다시 검사해 주세요.",
+        );
+      }
     } finally {
       clearTimeout(timeout);
-    }
-
-    if (!response.ok) {
-      throw new Error("서버 응답 오류: HTTP " + response.status);
     }
 
     const data = await response.json();
