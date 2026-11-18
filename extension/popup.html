@@ -1,104 +1,60 @@
-
 <!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0" />
-  <title>LinkVet URL Security</title>
-  <link rel="stylesheet" href="popup.css" />
-  <script src="popup.js" defer></script>
-</head>
-<body>
-<main>
-  <header>
-    <div class="eyebrow">LINKVET SECURITY</div>
-    <h1>URL 보안 분석</h1>
-    <p>규칙 기반 · Random Forest · 조건부 JEV 통합 분석</p>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DONGMULBW: Link Vet</title>
+    <link rel="stylesheet" href="popup.css" />
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <!-- 상단 로고 및 제목 -->
+      <header class="header">
+        <img
+          src="assets/dongmulbw-logo.jpeg"
+          alt="DONGMULBW 로고"
+          class="logo"
+        />
+        <h1>DONGMULBW: Link Vet</h1>
+      </header>
 
-  <section class="panel">
-    <div class="small">현재 분석 URL</div>
-    <div id="url" class="url">확인 중...</div>
+      <section class="site-section">
+        <p class="section-label">현재 접속한 사이트</p>
+        <div class="site-url">
+          <span>🌐</span>
+          <span id="url">확인 중...</span>
+        </div>
+      </section>
 
-    <!-- 최종 통합 분석 결과 -->
-    <h2>최종 통합 분석 결과</h2>
+      <!-- 최종 위험도 -->
+      <section id="status-box" class="status-box">
+        <h2 id="status">분석 중...</h2>
+        <p id="status-message">현재 사이트를 검사하고 있습니다.</p>
+      </section>
 
-    <div id="status" class="status">
-      분석 준비 중
-    </div>
+      <section class="results">
+        <div class="more-section">
+          <button id="toggleDetailsBtn" class="more-link" type="button">
+            더보기
+          </button>
 
-    <div class="explanation-box">
-      <strong id="explanation-title">
-        분석 결과를 기다리는 중...
-      </strong>
+          <div id="detailBox" class="detail-box hidden">
+            <div id="detailExtra" class="detail-extra">
+              <p>
+                - 본 서비스는 <strong>규칙 기반 검사</strong>와
+                <strong>RF(Random Forest) 검사</strong>를 함께 사용합니다.
+              </p>
+              <p>
+                - 최종 점수는
+                <strong>규칙 기반 검사 70% + RF 검사 30%</strong>로 계산됩니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <p id="explanation-description">
-        규칙 기반 및 AI 모델 분석을 진행합니다.
-      </p>
-    </div>
-
-    <div class="analysis-info">
-      <div class="info-row">
-        <span>JEV 분석 상태</span>
-        <strong id="jev-status">확인 중</strong>
-      </div>
-
-      <div class="info-row">
-        <span>RF 악성 확률</span>
-        <strong id="rf-probability">—</strong>
-      </div>
-    </div>
-
-    <!-- 기존 규칙 기반 분석 -->
-    <h2>규칙 기반 상세 분석</h2>
-
-    <div class="score-title">
-      <span>규칙 기반 탐지 점수</span>
-      <strong id="score">— / 100</strong>
-    </div>
-
-    <div class="bar">
-      <div id="fill"></div>
-    </div>
-
-    <div id="rule-level" class="rule-level">
-      규칙 기반 등급: 확인 중
-    </div>
-
-    <h2>탐지된 위험 요소</h2>
-    <div id="findings" class="findings">
-      분석 결과를 기다리는 중...
-    </div>
-
-    <p class="note">
-      규칙 기반 점수는 개별 분석 결과입니다.
-      최종 위험 등급은 규칙 기반, RF 모델,
-      피싱 블랙리스트 및 조건부 JEV 결과를
-      종합한 백엔드 판정 기준을 따릅니다.
-    </p>
-
-    <button id="retry" type="button">
-      다시 분석
-    </button>
-  </section>
-
-  <!-- 기존 RF 단독 테스트 유지 -->
-  <section class="rf-test-section">
-    <h2>Random Forest 단독 테스트</h2>
-
-    <p>RF 모델만 사용하여 현재 URL을 분석합니다.</p>
-
-    <button id="ml-test" type="button">
-      RF 단독 검사
-    </button>
-
-    <div id="ml-test-result" aria-live="polite">
-      아직 RF 검사를 실행하지 않았습니다.
-    </div>
-  </section>
-
-  <footer id="details"></footer>
-</main>
-</body>
+      <button id="retry" class="retry-button" type="button">다시 검사</button>
+    </main>
+  </body>
 </html>

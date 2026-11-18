@@ -2,62 +2,86 @@
 package com.dongmulbw.backend.service;
 
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class RfIntegrationTest {
 
-        @Test
-        void testRandomForestPrediction() throws Exception {
+    private static final int FEATURE_COUNT = 31;
+    private static final float THRESHOLD = 0.534f;
 
-                UrlFeatureExtractor extractor = new UrlFeatureExtractor();
+    @Test
+    void testRandomForestPrediction() throws Exception {
 
-                String[] urls = {
-                                "https://www.google.com/",
-                                "https://www.naver.com/",
-                                "http://secure-login.example.com/verify-account?confirm=1",
-                                "example.com/login?user=test"
-                };
-                RfOnnxService rf = new RfOnnxService();
+        UrlFeatureExtractor extractor = new UrlFeatureExtractor();
 
-                try {
-                        for (String url : urls) {
+        String[] urls = {
+                "https://www.google.com/",
+                "https://www.naver.com/",
+                "http://secure-login.example.com/verify-account?confirm=1",
+                "example.com/login?user=test"
+        };
 
-                                // 1. URL에서 특징 21개 추출
-                                float[] features = extractor.extractFeatureVector(url);
+        RfOnnxService rf = new RfOnnxService();
 
-                                assertEquals(21, features.length);
+        try {
+            for (String url : urls) {
 
-                                // Java에서 추출한 21개 특징값 출력
-                                System.out.println("\n=== JAVA FEATURES ===");
-                                System.out.println("URL: " + url);
+                // 1. G 모델 입력 특징 31개 추출
+                float[] features =
+                        extractor.extractFeatureVector(url);
 
-                                extractor.extractFeatures(url).forEach(
-                                                (name, value) -> System.out.println(name + ": " + value));
+                assertEquals(
+                        FEATURE_COUNT,
+                        features.length,
+                        "G-V6-A-31 모델의 특징 개수는 31개여야 합니다."
+                );
 
-                                System.out.println("=====================");
+                // 2. Java 특징 추출 결과 출력
+                System.out.println("\n=== JAVA FEATURES ===");
+                System.out.println("URL: " + url);
 
-                                // 2. ONNX Random Forest 실행
-                                float probability = rf.predictMaliciousProbability(features);
+                extractor.extractFeatures(url).forEach(
+                        (name, value) ->
+                                System.out.println(name + ": " + value)
+                );
 
-                                // 3. 정상적인 확률인지 확인
-                                assertTrue(Float.isFinite(probability));
-                                assertTrue(probability >= 0f);
-                                assertTrue(probability <= 1f);
+                System.out.println("=====================");
 
-                                // 4. 임계값 0.50 기준 이진 판정
-                                int prediction = probability >= 0.50f ? 1 : 0;
+                // 3. ONNX Random Forest 추론
+                float probability =
+                        rf.predictMaliciousProbability(features);
 
-                                System.out.println("\n========== RF TEST ==========");
-                                System.out.println("URL: " + url);
-                                System.out.println("Features: " + features.length);
-                                System.out.println("Malicious probability: "
-                                                + probability);
-                                System.out.println("Prediction: "
-                                                + (prediction == 1 ? "MALICIOUS" : "BENIGN"));
-                                System.out.println("=============================");
-                        }
-                } finally {
-                        rf.close();
-                }
+                // 4. 악성 확률 유효성 검증
+                assertTrue(
+                        Float.isFinite(probability),
+                        "예측 확률은 유한한 숫자여야 합니다."
+                );
+
+                assertTrue(
+                        probability >= 0f && probability <= 1f,
+                        "예측 확률은 0~1 범위여야 합니다."
+                );
+
+                // 5. 최종 임계값 0.534 적용
+                int prediction =
+                        probability >= THRESHOLD ? 1 : 0;
+
+                // 6. 결과 출력
+                System.out.println("\n========== RF G MODEL TEST ==========");
+                System.out.println("Model: G-V6-A-31");
+                System.out.println("URL: " + url);
+                System.out.println("Features: " + features.length);
+                System.out.println("Threshold: " + THRESHOLD);
+                System.out.println("Malicious probability: " + probability);
+                System.out.println(
+                        "Prediction: " +
+                        (prediction == 1 ? "MALICIOUS" : "BENIGN")
+                );
+                System.out.println("=====================================");
+            }
+        } finally {
+            rf.close();
         }
+    }
 }

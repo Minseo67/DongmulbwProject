@@ -1,4 +1,3 @@
-
 package com.dongmulbw.backend.service;
 
 import ai.onnxruntime.OnnxTensor;
@@ -6,83 +5,100 @@ import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
 import jakarta.annotation.PreDestroy;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 @Service
 public class RfOnnxService {
 
-        private static final int FEATURE_COUNT = 21;
-        private static final String MODEL_PATH = "ml/rf_f_base.onnx";
-        private static final String INPUT_NAME = "input";
-        private static final String OUTPUT_NAME = "probabilities";
+    private static final int FEATURE_COUNT = 31;
+    private static final String MODEL_FILE =
+            "ml/models/rf_g_v6_final/G-V6-A-31.onnx";
 
-        private final OrtEnvironment environment;
-        private final OrtSession session;
+    private static final String INPUT_NAME = "X";
+    private static final String OUTPUT_NAME = "probabilities";
 
-        public RfOnnxService() throws IOException, OrtException {
-                this.environment = OrtEnvironment.getEnvironment();
+    private final OrtEnvironment environment;
+    private final OrtSession session;
 
-                byte[] modelBytes = new ClassPathResource(MODEL_PATH)
-                                .getInputStream().readAllBytes();
+    public RfOnnxService() throws IOException, OrtException {
+        environment = OrtEnvironment.getEnvironment();
 
-                this.session = environment.createSession(
-                                modelBytes,
-                                new OrtSession.SessionOptions());
+        Path current = Path.of("").toAbsolutePath().normalize();
+        Path modelPath = current.resolve(MODEL_FILE);
 
-                if (!session.getInputNames().contains(INPUT_NAME)
-                                || !session.getOutputNames().contains(OUTPUT_NAME)) {
-                        throw new IllegalStateException(
-                                        "RF ONNX input/output names do not match expected configuration");
-                }
-
-                System.out.println("[RF] ONNX model loaded: " + MODEL_PATH);
+        // backend 폴더에서 실행한 경우 프로젝트 루트 탐색
+        if (!Files.isRegularFile(modelPath)) {
+            modelPath = current.resolve("..")
+                    .resolve(MODEL_FILE).normalize();
         }
 
-        // 특징 21개를 받아 악성 클래스(1)의 확률을 반환
-        public float predictMaliciousProbability(float[] features)
-                        throws OrtException {
-
-                if (features == null || features.length != FEATURE_COUNT) {
-                        throw new IllegalArgumentException(
-                                        "RF requires exactly 21 features");
-                }
-
-                for (float feature : features) {
-                        if (!Float.isFinite(feature)) {
-                                throw new IllegalArgumentException(
-                                                "RF features must be finite numbers");
-                        }
-                }
-
-                try (
-                                OnnxTensor tensor = OnnxTensor.createTensor(
-                                                environment,
-                                                new float[][] { features });
-                                OrtSession.Result result = session.run(
-                                                Map.of(INPUT_NAME, tensor))) {
-                        var probabilities = result.get(OUTPUT_NAME)
-                                        .orElseThrow(() -> new IllegalStateException(
-                                                        "RF probability output missing"));
-
-                        Object value = probabilities.getValue();
-
-                        if (!(value instanceof float[][] matrix)
-                                        || matrix.length != 1
-                                        || matrix[0].length != 2) {
-                                throw new IllegalStateException(
-                                                "Unexpected RF probability output shape");
-                        }
-
-                        return matrix[0][1];
-                }
+        if (!Files.isRegularFile(modelPath)) {
+            throw new IOException(
+                    "G model not found. Current directory: " + current);
         }
 
-        @PreDestroy
-        public void close() throws OrtException {
-                session.close();
+        session = environment.createSession(
+                modelPath.toString(),
+                new OrtSession.SessionOptions()
+        );
+
+        if (!session.getInputNames().contains(INPUT_NAME)
+                || !session.getOutputNames().contains(OUTPUT_NAME)) {
+            throw new IllegalStateException(
+                    "Unexpected ONNX input/output names. Inputs="
+                    + session.getInputNames()
+                    + ", outputs=" + session.getOutputNames()
+            );
         }
+
+        System.out.println("[RF] G-V6-A-31 loaded: " + modelPath);
+    }
+
+    public float predictMaliciousProbability(float[] features)
+            throws OrtException {
+
+        if (features == null || features.length != FEATURE_COUNT) {
+            throw new IllegalArgumentException(
+                    "G model requires exactly 31 features");
+        }
+
+        for (float value : features) {
+            if (!Float.isFinite(value)) {
+                throw new IllegalArgumentException(
+                        "RF features must be finite numbers");
+            }
+        }
+
+        try (
+            OnnxTensor tensor = OnnxTensor.createTensor(
+                    environment, new float[][] { features });
+            OrtSession.Result result = session.run(
+                    Map.of(INPUT_NAME, tensor))
+        ) {
+            Object value = result.get(OUTPUT_NAME)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "RF probability output missing"))
+                    .getValue();
+
+            if (!(value instanceof float[][] matrix)
+                    || matrix.length != 1
+                    || matrix[0].length != 2) {
+                throw new IllegalStateException(
+                        "Unexpected RF probability output: "
+                        + value.getClass().getName());
+            }
+
+            return matrix[0][1];
+        }
+    }
+
+    @PreDestroy
+    public void close() throws OrtException {
+        session.close();
+    }
 }
