@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DONGMULBW - 보안 경고</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f6f7fb;
+        font-family: Arial, sans-serif;
+        color: #222;
+      }
+
+      .warning-card {
+        width: min(480px, calc(100% - 32px));
+        background: white;
+        border-radius: 18px;
+        padding: 36px;
+        text-align: center;
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
+      }
+
+      .symbol {
+        font-size: 46px;
+      }
+
+      h1 {
+        margin: 16px 0 10px;
+      }
+
+      .url {
+        padding: 12px;
+        border-radius: 8px;
+        background: #f2f3f7;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+      }
+
+      .score {
+        font-size: 26px;
+        font-weight: bold;
+        margin: 20px 0;
+      }
+
+      .danger {
+        color: #d93025;
+      }
+      .warning {
+        color: #c57c00;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 28px;
+      }
+
+      button {
+        flex: 1;
+        padding: 14px 8px;
+        border: 0;
+        border-radius: 9px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      #leave {
+        color: white;
+        background: #202d48;
+      }
+
+      #continue {
+        background: #eceef2;
+        color: #555;
+      }
+
+      .note {
+        font-size: 12px;
+        color: #777;
+        margin-top: 18px;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="warning-card">
+      <div class="symbol">⚠️</div>
+
+      <h1 id="title">보안 경고</h1>
+
+      <p id="message">접속하려는 URL의 위험도가 높게 분석되었습니다.</p>
+
+      <p class="url" id="url">URL 확인 중...</p>
+
+      <div class="score" id="score">—</div>
+
+      <div class="actions">
+        <button id="leave">사이트 나가기</button>
+        <button id="continue" disabled>계속 접속하기</button>
+      </div>
+
+      <p class="note">
+        해당 URL에서 보안 위험 요소가 감지되었습니다.<br />
+        안전을 위해 사이트 접속을 권장하지 않습니다.
+      </p>
+    </main>
+
+    <script src="warning.js"></script>
+  </body>
+</html>
