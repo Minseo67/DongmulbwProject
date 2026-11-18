@@ -6,168 +6,146 @@ import org.springframework.stereotype.Service;
 
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 @Service
 public class FinalRiskAssessmentService {
 
-    private static final String POLICY_VERSION = "priority-v1";
+    private static final String POLICY_VERSION = "jev-fusion-v1";
 
-    // 최종 위험도 통합을 위한 임시 RF 구간
-    private static final double RF_SAFE_LIMIT = 0.30;
-    private static final double RF_DANGER_LIMIT = 0.70;
+    private static final double DANGER_RULE_THRESHOLD = 60.0;
+    private static final double DANGER_RF_THRESHOLD = 0.70;
 
-    private static final Set<String> VALID_LEVELS =
-            Set.of("SAFE", "CAUTION", "DANGER");
-
+    /**
+     * 최신 main의 70:30 융합 결과를 기준으로
+     * JEV를 통한 최종 위험 등급 보정을 수행한다.
+     *
+     * 융합 점수는 변경하지 않는다.
+     */
     public FinalAssessment assess(
+            NeuroSymbolicFusionService.FusionResult fusion,
             RuleAnalysisResult ruleResult,
             MlAnalysisService.MlResult mlResult,
             boolean phishingUrlMatched,
             Map<String, Object> jevResult) {
 
-        if (ruleResult == null) {
+        if (fusion == null || ruleResult == null) {
             throw new IllegalArgumentException(
-                    "규칙 기반 분석 결과가 없습니다.");
+                    "융합 결과와 규칙 기반 결과가 필요합니다.");
         }
 
-        String ruleLevel = normalizeLevel(
-                ruleResult.riskLevel());
+        String fusionLevel = normalizeLevel(
+                fusion.finalRiskLevel());
 
-        // 1. 피싱 URL 목록 일치 여부 우선 확인
-        if (phishingUrlMatched) {
-            return new FinalAssessment(
-                    "DANGER",
-                    mlResult == null ? "PARTIAL" : "COMPLETE",
-                    "PHISHING_URL_MATCH",
-                    false,
-                    POLICY_VERSION
-            );
-        }
-
-        // 2. RF 결과가 없으면 부분 분석으로 처리
-        if (mlResult == null) {
-            return new FinalAssessment(
-                    "CAUTION",
-                    "PARTIAL",
-                    "RF_UNAVAILABLE",
-                    false,
-                    POLICY_VERSION
-            );
-        }
-
-        // 3. RF 확률 검증
-        double rfProbability = mlResult.maliciousProbability();
-
-        if (!Double.isFinite(rfProbability)
-                || rfProbability < 0.0
-                || rfProbability > 1.0) {
-            throw new IllegalArgumentException(
-                    "RF 확률값이 올바르지 않습니다.");
-        }
-
-        // 4. RF 확률을 3단계 등급으로 변환
-        String rfLevel = classifyRf(rfProbability);
-
-        // 5. JEV 결과 확인
-        String jevLevel = null;
+        String finalLevel = fusionLevel;
+        String decisionReason = "BASE_RISK_MAINTAINED";
         boolean jevUsed = false;
 
-        if (jevResult != null
-                && "COMPLETED".equals(jevResult.get("status"))) {
+        // 1. 피싱 URL 목록 일치: 위험 등급 우선
+        if (phishingUrlMatched) {
+            finalLevel = "DANGER";
+            decisionReason = "PHISHING_URL_MATCH";
 
-            Object analysisObject = jevResult.get("jevAnalysis");
+        // 2. RF 분석 실패: 기존 융합 결과 유지
+        } else if (mlResult == null) {
+            decisionReason = "RF_UNAVAILABLE";
 
-            if (analysisObject instanceof Map<?, ?> analysis) {
-                Object riskLevel = analysis.get("risk_level");
+        // 3. JEV 분석 결과가 유효한 경우
+        } else {
+            String jevLevel = extractJevLevel(jevResult);
 
-                if (riskLevel instanceof String level) {
-                    String normalizedJevLevel =
-                            level.toUpperCase(Locale.ROOT);
+            if (jevLevel != null) {
 
-                    if (VALID_LEVELS.contains(normalizedJevLevel)) {
-                        jevLevel = normalizedJevLevel;
+                // SAFE + JEV DANGER -> WARNING
+                if ("SAFE".equals(fusionLevel)
+                        && "DANGER".equals(jevLevel)) {
+
+                    finalLevel = "WARNING";
+                    decisionReason = "JEV_RISK_ESCALATION";
+                    jevUsed = true;
+
+                // WARNING + JEV DANGER
+                } else if ("WARNING".equals(fusionLevel)
+                        && "DANGER".equals(jevLevel)) {
+
+                    boolean strongRiskSignal =
+                            ruleResult.suspiciousScore()
+                                    >= DANGER_RULE_THRESHOLD
+                            || mlResult.maliciousProbability()
+                                    >= DANGER_RF_THRESHOLD;
+
+                    if (strongRiskSignal) {
+                        finalLevel = "DANGER";
+                        decisionReason = "JEV_SUPPORTS_DANGER";
+                        jevUsed = true;
                     }
                 }
             }
         }
 
-        // 6. 규칙 기반과 RF 판단이 일치하는 경우
-        if (ruleLevel.equals(rfLevel)) {
-            return new FinalAssessment(
-                    ruleLevel,
-                    "COMPLETE",
-                    "RULE_RF_AGREEMENT",
-                    false,
-                    POLICY_VERSION
-            );
-        }
-
-        // 7. 두 분석이 불일치하고 JEV가 위험을 지지하는 경우
-        if ("DANGER".equals(jevLevel)
-                && ("DANGER".equals(ruleLevel)
-                || "DANGER".equals(rfLevel))) {
-
-            jevUsed = true;
-
-            return new FinalAssessment(
-                    "DANGER",
-                    "COMPLETE",
-                    "JEV_SUPPORTS_DANGER",
-                    jevUsed,
-                    POLICY_VERSION
-            );
-        }
-
-        // 8. 그 외 불일치 상황은 주의 등급
-        // JEV가 유효한 결과를 제공했다면 보조 근거로 기록
-        jevUsed = jevLevel != null;
+        boolean riskAdjusted =
+                !fusionLevel.equals(finalLevel);
 
         return new FinalAssessment(
-                "CAUTION",
-                "COMPLETE",
-                "RULE_RF_CONFLICT",
+                POLICY_VERSION,
+                fusionLevel,
+                finalLevel,
+                riskAdjusted,
                 jevUsed,
-                POLICY_VERSION
-        );
+                decisionReason);
     }
 
-    private String classifyRf(double probability) {
+    private String extractJevLevel(
+            Map<String, Object> jevResult) {
 
-        if (probability < RF_SAFE_LIMIT) {
-            return "SAFE";
+        if (jevResult == null
+                || !"COMPLETED".equals(
+                        jevResult.get("status"))) {
+            return null;
         }
 
-        if (probability < RF_DANGER_LIMIT) {
-            return "CAUTION";
+        Object analysisObject =
+                jevResult.get("jevAnalysis");
+
+        if (!(analysisObject instanceof Map<?, ?> analysis)) {
+            return null;
         }
 
-        return "DANGER";
+        Object levelObject = analysis.get("risk_level");
+
+        if (!(levelObject instanceof String level)) {
+            return null;
+        }
+
+        return switch (level.trim().toUpperCase(Locale.ROOT)) {
+            case "SAFE" -> "SAFE";
+            case "CAUTION", "WARNING" -> "WARNING";
+            case "DANGER" -> "DANGER";
+            default -> null;
+        };
     }
 
     private String normalizeLevel(String level) {
 
         if (level == null) {
             throw new IllegalArgumentException(
-                    "규칙 기반 위험 등급이 없습니다.");
+                    "위험 등급이 없습니다.");
         }
 
-        String normalized =
-                level.toUpperCase(Locale.ROOT);
-
-        if (!VALID_LEVELS.contains(normalized)) {
-            throw new IllegalArgumentException(
-                    "지원하지 않는 규칙 기반 위험 등급: " + level);
-        }
-
-        return normalized;
+        return switch (level.trim().toUpperCase(Locale.ROOT)) {
+            case "SAFE" -> "SAFE";
+            case "CAUTION", "WARNING" -> "WARNING";
+            case "DANGER" -> "DANGER";
+            default -> throw new IllegalArgumentException(
+                    "지원하지 않는 위험 등급: " + level);
+        };
     }
 
     public record FinalAssessment(
+            String policyVersion,
+            String fusionRiskLevel,
             String riskLevel,
-            String assessmentStatus,
-            String decisionReason,
+            boolean riskAdjusted,
             boolean jevUsed,
-            String policyVersion) {
+            String decisionReason) {
     }
 }
