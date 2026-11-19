@@ -170,34 +170,34 @@ function renderOverallStatus(data) {
   //   return;
   // }
 
-// 70:30 융합 점수에 따른 기본 위험 등급
-const fusionLevel = data.fusionAnalysis?.finalRiskLevel ?? expectedLevel;
+  // 70:30 융합 점수에 따른 기본 위험 등급
+  const fusionLevel = data.fusionAnalysis?.finalRiskLevel ?? expectedLevel;
 
-// 융합 점수 자체의 등급이 올바른지 확인
-if (fusionLevel !== expectedLevel) {
-  setStatus(
-    "검사 불가",
-    "융합 점수와 기본 위험 등급이 일치하지 않습니다.",
-    "error",
-  );
-  return;
-}
+  // 융합 점수 자체의 등급이 올바른지 확인
+  if (fusionLevel !== expectedLevel) {
+    setStatus(
+      "검사 불가",
+      "융합 점수와 기본 위험 등급이 일치하지 않습니다.",
+      "error",
+    );
+    return;
+  }
 
-// JEV 보정은 위험 등급 상향만 허용
-const riskOrder = {
-  SAFE: 0,
-  WARNING: 1,
-  DANGER: 2,
-};
+  // JEV 보정은 위험 등급 상향만 허용
+  const riskOrder = {
+    SAFE: 0,
+    WARNING: 1,
+    DANGER: 2,
+  };
 
-if (riskOrder[level] < riskOrder[fusionLevel]) {
-  setStatus(
-    "검사 불가",
-    "최종 위험 등급 검증에 실패했습니다.",
-    "error",
-  );
-  return;
-}
+  if (riskOrder[level] < riskOrder[fusionLevel]) {
+    setStatus(
+      "검사 불가",
+      "최종 위험 등급 검증에 실패했습니다.",
+      "error",
+    );
+    return;
+  }
 
   const statusMap = {
     SAFE: {
@@ -353,22 +353,22 @@ function renderDetailExplanation(data) {
   if (!detailSummary || !detailFormulaText) return;
 
   // JEV 보조 분석 및 최종 위험 등급 설명
-const explanation = data?.riskExplanation;
+  const explanation = data?.riskExplanation;
 
-let jevExplanation = "";
+  let jevExplanation = "";
 
-if (explanation && typeof explanation.description === "string") {
-  jevExplanation = explanation.description.trim();
-}
+  if (explanation && typeof explanation.description === "string") {
+    jevExplanation = explanation.description.trim();
+  }
 
-const jevStatus = data?.jevAnalysis?.status;
-const riskAdjusted = data?.finalAssessment?.riskAdjusted === true;
+  const jevStatus = data?.jevAnalysis?.status;
+  const riskAdjusted = data?.finalAssessment?.riskAdjusted === true;
 
-if (riskAdjusted && jevStatus === "COMPLETED") {
-  jevExplanation =
-    "JEV 보조 분석 결과가 반영되어 최종 위험 등급이 상향되었습니다. " +
-    jevExplanation;
-}
+  if (riskAdjusted && jevStatus === "COMPLETED") {
+    jevExplanation =
+      "JEV 보조 분석 결과가 반영되어 최종 위험 등급이 상향되었습니다. " +
+      jevExplanation;
+  }
 
   const ruleScore = Number(data?.ruleAnalysis?.suspiciousScore);
   const finalScore = Number(data?.finalScore);
@@ -392,8 +392,8 @@ if (riskAdjusted && jevStatus === "COMPLETED") {
     // detailFormulaText.textContent = `계산식: 규칙 기반 ${ruleScore.toFixed(1)}점 × 70% + RF ${rfPercent.toFixed(1)}% × 30% = ${finalScore.toFixed(1)}점`;
     // return;
     detailFormulaText.textContent =
-  `계산식: 규칙 기반 ${ruleScore.toFixed(1)}점 × 70% + RF ${rfPercent.toFixed(1)}% × 30% = ${finalScore.toFixed(1)}점` +
-  (jevExplanation ? `\n\n${jevExplanation}` : "");
+      `계산식: 규칙 기반 ${ruleScore.toFixed(1)}점 × 70% + RF ${rfPercent.toFixed(1)}% × 30% = ${finalScore.toFixed(1)}점` +
+      (jevExplanation ? `\n\n${jevExplanation}` : "");
   }
 
   if (hasRuleScore && hasFinalScore) {

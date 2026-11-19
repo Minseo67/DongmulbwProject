@@ -133,6 +133,9 @@ public interface AnalysisRunRepository
                                 :modelVersion
                             AND ua.normalization_version =
                                 :normalizationVersion
+                            AND JSON_UNQUOTE(
+                                JSON_EXTRACT(ua.features_json, '$.policyVersion')
+                            ) =:policyVersion
                       )
                   )
               )
@@ -143,6 +146,7 @@ public interface AnalysisRunRepository
             @Param("ruleVersion") String ruleVersion,
             @Param("modelVersion") String modelVersion,
             @Param("normalizationVersion") String normalizationVersion,
+            @Param("policyVersion") String policyVersion,
             @Param("leaseSeconds") int leaseSeconds);
 
     /**
