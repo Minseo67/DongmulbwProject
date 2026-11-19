@@ -36,11 +36,12 @@ public class AnalysisRunExecutionService {
      */
     @Transactional
     public Optional<String> acquireRun(
-            Long urlId,
-            String ruleVersion,
-            String modelVersion,
-            String normalizationVersion,
-            int leaseSeconds) {
+        Long urlId,
+        String ruleVersion,
+        String modelVersion,
+        String normalizationVersion,
+        String policyVersion,
+        int leaseSeconds) {
 
         validateUrlId(urlId);
         validateVersion(ruleVersion, "ruleVersion");
@@ -48,6 +49,7 @@ public class AnalysisRunExecutionService {
         validateVersion(
                 normalizationVersion,
                 "normalizationVersion");
+        validateVersion(policyVersion, "policyVersion");
 
         if (leaseSeconds <= 0) {
             throw new IllegalArgumentException(
@@ -79,12 +81,13 @@ public class AnalysisRunExecutionService {
 
         // 3. 기존 작업의 실행 권한 재획득 시도
         int updated = runRepository.acquireExistingRun(
-                urlId,
-                runToken,
-                ruleVersion,
-                modelVersion,
-                normalizationVersion,
-                leaseSeconds);
+        urlId,
+        runToken,
+        ruleVersion,
+        modelVersion,
+        normalizationVersion,
+        policyVersion,
+        leaseSeconds);
 
         if (updated == 1) {
             return Optional.of(runToken);
